@@ -1,10 +1,10 @@
 * { margin: 0px; padding: 0px }
 html { overflow-y: scroll; }
-body { font-family: "Open Sans", Tahoma; font-size: 15px; line-height: 20px; color: #333; background-color: #fafafa; }
+body { font-family: "Open Sans", Tahoma; font-size: 15px; line-height: 20px; color: #333; background-color: #f0f0f0; }
 input, select, textarea { font-family: "Open Sans", Tahama; color: #111; background-color: #fff; border-radius: 3px; padding: 2px; }
 h1, h2, h3, h4, h5, h6 { font-weight: 100; }
 a, a:visited, a:active, a:hover { outline: none; text-decoration: underline; color: #06f; }
-table, p, blockquote, ol, ul { margin-bottom: 1em; }
+table, p, blockquote, ol, ul { margin-bottom: 1em; text-shadow: 1px 1px #fff; }
 
 .wrapper { 
     width: 80em; 
