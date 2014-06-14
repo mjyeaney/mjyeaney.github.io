@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+    <channel>
+        <title>michael yeaney :: blog</title>
+        <link>https://mjyeaney.github.io/</link>
+        <description>
+            Ramblings and thought on cloud, distributed systems, formal methods...maybe even some code, too!
+        </description>
+        <item>
+            <title></title>
+            <link></link>
+            <description></description>
+            <pubDate>Mon, 12 May 2014 10:08:00 GMT</pubDate>
+            <guid></guid>
+            <category>Tag 1</category>
+            <category>Tag 2</category>
+        </item>
+    </channel>
+</rss>
