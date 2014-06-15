@@ -1,5 +1,7 @@
 //
-// My embarassingly simple blog generator.
+// My embarassingly simple blog generator. Pretty simple, doesn't do much;
+// honestly, Jekyll is further ahead. But this isn't bound to one platform,
+// and only requires static HTML hosting. And...because fun.
 //
 
 (function(){
@@ -43,6 +45,9 @@
         return output;
     };
     
+    //
+    // Core file generation
+    //
 
     // 1. Read header and footer
     console.log('Reading header and footer...');
@@ -100,17 +105,23 @@
         index.push(teaser);
     }
 
+    //
+    // Index page generation
+    //
+
     var indexContent = '<p class="noItems">No active posts!!!</p>';
 
     if (index.length > 0){
         // Create index page content
         indexContent = index.reduce(function(p, c){
-                                return p + (c.content) + '<p><a href="' + c.link + '">Read more...</a></p>';
-                            }, '');
+            return p + c.content + '<p><a href="' + c.link + '" title="Read more...">Read more...</a></p>';
+        }, '');
     }
 
     // write out index page
     fs.writeFileSync('.\\index.html', header + indexContent + footer);
     
-    // TODO: Update RSS xml
+    //
+    // TODO: Need to update RSS template
+    //
 })();
