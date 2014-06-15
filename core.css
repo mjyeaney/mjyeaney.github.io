@@ -34,7 +34,6 @@ table, p, blockquote, ol, ul { margin-bottom: 1em; text-shadow: 1px 1px #fff; }
 #content { min-height: 20em; }
 #content .leftCol { padding-left: 1em; width: 65%; float: left; }
 #content .rightCol { padding-left: 1em; width: 30%; float: left; }
-#content h2 { font-weight: bold; margin-bottom: 1em; } 
 #content p.social { border-top: 2px solid #c0c0c0; border-bottom: 2px solid #c0c0c0; text-align: center; padding: .5em 0; margin: 2em 0; }
 #content p.social a { display: inline-block; margin-right: 1em; }
 #content div.mugShot { text-align: center; }
@@ -44,10 +43,26 @@ table, p, blockquote, ol, ul { margin-bottom: 1em; text-shadow: 1px 1px #fff; }
 #footer .wrapper { padding: 0 1em; }
 #footer .wrapper p { border-top: 1px solid #a0a0a0; font-size: .875em; line-height: 2em; } 
 
+.post h2 { font-weight: bold; margin-bottom: 1em; } 
+.noItems { font-style: italic; }
+
 @media (max-height: 768px){
     #header { height: 12em; }
     #header .wrapper h3 { font-size: 2em; }
     #header .wrapper ul { margin-top: -13em; }
+}
+
+@media (max-height: 480px){
+    #header { height: 3.5em; }
+    #header .wrapper h3 {
+        font-size: 2em;
+        line-height: 1.5em;
+        padding: 0 0 0 .25em;
+    }
+    #header .wrapper ul { margin-top: -2em; }
+    #header .wrapper ul li {
+        margin-left: .5em;
+    }
 }
 
 @media (max-width: 1024px) {
