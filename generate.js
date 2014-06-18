@@ -7,6 +7,7 @@
 (function(){
     var fs = require('fs');
 
+    ///////////////////////////////////////////////////////////////////////////
     //
     // From: http://blog.stevenlevithan.com/archives/get-html-summary
     //
@@ -45,6 +46,7 @@
         return output;
     };
     
+    ///////////////////////////////////////////////////////////////////////////
     //
     // Core file generation
     //
@@ -53,12 +55,16 @@
     console.log('Reading header and footer...');
     var header = fs.readFileSync('header.html');
     var footer = fs.readFileSync('footer.html');
-    console.log('Done!');
+    console.log('Done!!!');
 
     // 2. Enumerate all files in /posts
     console.log('Looking for posts...');
     var posts = fs.readdirSync('.\\posts');
     var index = [];
+
+    if (posts.length === 0){
+        console.log('No posts found!!!');
+    }
 
     for (var j=0; j < posts.length; j++){
         console.log('Found ' + posts[j]);
@@ -105,9 +111,12 @@
         index.push(teaser);
     }
 
+    ///////////////////////////////////////////////////////////////////////////
     //
     // Index page generation
     //
+
+    console.log('Creating index page(s)...');
 
     var indexContent = '<p class="noItems">No active posts!!!</p>';
 
@@ -120,7 +129,10 @@
 
     // write out index page
     fs.writeFileSync('.\\index.html', header + indexContent + footer);
+
+    console.log('Done!!!');
     
+    ///////////////////////////////////////////////////////////////////////////
     //
     // TODO: Need to update RSS template
     //
