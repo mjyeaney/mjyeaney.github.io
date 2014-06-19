@@ -7,10 +7,13 @@
 (function(){
     var fs = require('fs');
 
-    ///////////////////////////////////////////////////////////////////////////
     //
-    // From: http://blog.stevenlevithan.com/archives/get-html-summary
+    // Creates a 'teaser' from the post HTML, but instead of a simple substring,
+    // obeys open/closed HTML tags so the teaser markup remains valid.
     //
+    // Adapted from: http://blog.stevenlevithan.com/archives/get-html-summary
+    //
+
     function getLeadingHtml (input, maxChars) {
         // token matches a word, tag, or special character
         var	token = /\w+|[^\w<]|<(\/)?(\w+)[^>]*(\/)?>|</g,
@@ -46,7 +49,6 @@
         return output;
     };
     
-    ///////////////////////////////////////////////////////////////////////////
     //
     // Core file generation
     //
@@ -65,9 +67,9 @@
     // 2a. Make sure posts were found
     if (posts.length === 0){
         console.log('No posts found!!!');
-        return;
     }
 
+    // 2b. Walk each file found (what about ordering?)
     for (var j=0; j < posts.length; j++){
         console.log('Found ' + posts[j]);
 
