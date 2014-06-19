@@ -62,8 +62,10 @@
     var posts = fs.readdirSync('.\\posts');
     var index = [];
 
+    // 2a. Make sure posts were found
     if (posts.length === 0){
         console.log('No posts found!!!');
+        return;
     }
 
     for (var j=0; j < posts.length; j++){
@@ -91,7 +93,7 @@
             fs.mkdir(path);
         }
 
-        // create a director with the post name
+        // create a directory with the post name
         path += '\\' + parts.join('-');
         if (!fs.existsSync(path)){
             fs.mkdir(path);
