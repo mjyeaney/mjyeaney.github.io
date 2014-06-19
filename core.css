@@ -29,6 +29,7 @@ table, p, blockquote, ol, ul { margin-bottom: 1em; text-shadow: 1px 1px #eee; }
 
 #header a.hamburger {
     float: right;
+    width: 1em;
     color: #eee;
     margin-top: -1.5em;
     text-decoration: none;
