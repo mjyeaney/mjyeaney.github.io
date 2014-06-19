@@ -5,8 +5,15 @@
 //
 
 (function(){
+    //
+    // Module requirements
+    //
     var fs = require('fs');
     var moment = require('moment');
+
+    // 
+    // Read in the basics for content generation
+    //
     var header = fs.readFileSync('header.html');
     var footer = fs.readFileSync('footer.html');
     var index = [];
@@ -72,9 +79,16 @@
     //
 
     function publishPosts(){
+        var posts = fs.readdirSync('.\\posts'),
+            j = 0,
+            name = '',
+            parts = [],
+            path = '',
+            content = null,
+            teaser = null;
+
         // Enumerate all files in /posts
         logMessage('Looking for posts...');
-        var posts = fs.readdirSync('.\\posts');
 
         // Make sure posts were found
         if (posts.length === 0){
@@ -83,17 +97,17 @@
         }
 
         // Walk each file found (what about ordering?)
-        for (var j=0; j < posts.length; j++){
+        for (j=0; j < posts.length; j++){
             logMessage('Found ' + posts[j]);
 
             // kill the extension
-            var name = posts[j].replace('.html', '');
+            name = posts[j].replace('.html', '');
 
             // split the filename into parts (break on '-')
-            var parts = name.split('-');
+            parts = name.split('-');
 
             // The first 3 parts are YYYY-MM-DD; make directories for these
-            var path = parts.shift();
+            path = parts.shift();
             if (!fs.existsSync(path)){
                 fs.mkdir(path);
             }
@@ -114,12 +128,12 @@
 
             // Read the post content, wrap with header/footer, and write out
             // as the index file.
-            var content = fs.readFileSync('.\\posts\\' + posts[j]);
+            content = fs.readFileSync('.\\posts\\' + posts[j]);
             path += '\\index.html';
             fs.writeFileSync(path, header + content + footer);
 
             // Create index data for teasers
-            var teaser = {};
+            teaser = {};
             teaser.date = '';
             teaser.content = getLeadingHtml(content.toString(), 350);
             teaser.link = path.replace('\\', '/').replace('index.html', '');
@@ -135,10 +149,10 @@
     //
 
     function updateIndex(){
-        logMessage('Creating index page(s)...');
-
         // Initally, there are no posts.
         var indexContent = '<p class="noItems">No active posts!!!</p>';
+
+        logMessage('Creating index page(s)...');
 
         // However, if we find some....
         if (index.length > 0){
