@@ -6,6 +6,21 @@
 
 (function(){
     var fs = require('fs');
+    var moment = require('moment');
+    var header = fs.readFileSync('header.html');
+    var footer = fs.readFileSync('footer.html');
+    var index = [];
+
+    // 
+    // General message logging method; displays time, etc.
+    //
+    function logMessage(message){
+        var msg = [];
+        msg.push(moment().format('HH:mm:ss'));
+        msg.push(': ');
+        msg.push(message);
+        console.log(msg.join(''));
+    };
 
     //
     // Creates a 'teaser' from the post HTML, but instead of a simple substring,
@@ -50,94 +65,119 @@
     };
     
     //
-    // Core file generation
+    // Core file generation. Read posts from staging area, and
+    // create directory structures and index.html files for each.
+    // Note that each post has a date field attached to it via attributes
+    // contained within the markup (file system stamps are not enough!!!).
     //
 
-    // 1. Read header and footer
-    console.log('Reading header and footer...');
-    var header = fs.readFileSync('header.html');
-    var footer = fs.readFileSync('footer.html');
-    console.log('Done!!!');
+    function publishPosts(){
+        // Enumerate all files in /posts
+        logMessage('Looking for posts...');
+        var posts = fs.readdirSync('.\\posts');
 
-    // 2. Enumerate all files in /posts
-    console.log('Looking for posts...');
-    var posts = fs.readdirSync('.\\posts');
-    var index = [];
-
-    // 2a. Make sure posts were found
-    if (posts.length === 0){
-        console.log('No posts found!!!');
-    }
-
-    // 2b. Walk each file found (what about ordering?)
-    for (var j=0; j < posts.length; j++){
-        console.log('Found ' + posts[j]);
-
-        // kill the extension
-        var name = posts[j].replace('.html', '');
-
-        // split the filename into parts (break on '-')
-        var parts = name.split('-');
-
-        // The first 3 parts are YYYY-MM-DD; make directories for these
-        var path = parts.shift();
-        if (!fs.existsSync(path)){
-            fs.mkdir(path);
+        // Make sure posts were found
+        if (posts.length === 0){
+            logMessage('No posts found!');
+            return;
         }
 
-        path += '\\' + parts.shift();
-        if (!fs.existsSync(path)){
-            fs.mkdir(path);
+        // Walk each file found (what about ordering?)
+        for (var j=0; j < posts.length; j++){
+            logMessage('Found ' + posts[j]);
+
+            // kill the extension
+            var name = posts[j].replace('.html', '');
+
+            // split the filename into parts (break on '-')
+            var parts = name.split('-');
+
+            // The first 3 parts are YYYY-MM-DD; make directories for these
+            var path = parts.shift();
+            if (!fs.existsSync(path)){
+                fs.mkdir(path);
+            }
+            path += '\\' + parts.shift();
+            if (!fs.existsSync(path)){
+                fs.mkdir(path);
+            }
+            path += '\\' + parts.shift();
+            if (!fs.existsSync(path)){
+                fs.mkdir(path);
+            }
+
+            // Now, create a directory with the post name
+            path += '\\' + parts.join('-');
+            if (!fs.existsSync(path)){
+                fs.mkdir(path);
+            }
+
+            // Read the post content, wrap with header/footer, and write out
+            // as the index file.
+            var content = fs.readFileSync('.\\posts\\' + posts[j]);
+            path += '\\index.html';
+            fs.writeFileSync(path, header + content + footer);
+
+            // Create index data for teasers
+            var teaser = {};
+            teaser.date = '';
+            teaser.content = getLeadingHtml(content.toString(), 350);
+            teaser.link = path.replace('\\', '/').replace('index.html', '');
+
+            // Add the teaser structure to our master collection for later.
+            index.push(teaser);
         }
+    };
 
-        path += '\\' + parts.shift();
-        if (!fs.existsSync(path)){
-            fs.mkdir(path);
-        }
-
-        // create a directory with the post name
-        path += '\\' + parts.join('-');
-        if (!fs.existsSync(path)){
-            fs.mkdir(path);
-        }
-
-        // Read the post content, wrap with header/footer, and write out
-        var content = fs.readFileSync('.\\posts\\' + posts[j]);
-        path += '\\index.html';
-        fs.writeFileSync(path, header + content + footer);
-
-        // Create index data for teasers
-        var teaser = {};
-        teaser.content = getLeadingHtml(content.toString(), 350);
-        teaser.link = path.replace('\\', '/').replace('index.html', '');
-
-        // if the truncated content doesn't end with a closing 'div' tag, add it
-        index.push(teaser);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
     //
-    // Index page generation
+    // Index page generation...reads through posts, generates teasers, organizes 
+    // based on date, and creates pages (iif needed).
     //
 
-    console.log('Creating index page(s)...');
+    function updateIndex(){
+        logMessage('Creating index page(s)...');
 
-    var indexContent = '<p class="noItems">No active posts!!!</p>';
+        // Initally, there are no posts.
+        var indexContent = '<p class="noItems">No active posts!!!</p>';
 
-    if (index.length > 0){
-        // Create index page content
-        indexContent = index.reduce(function(p, c){
-            return p + c.content + '<p><a href="' + c.link + '" title="Read more...">Read more...</a></p>';
-        }, '');
-    }
+        // However, if we find some....
+        if (index.length > 0){
+            // Create index page content by sorting by date first,
+            // and then writing out the bits.
+            //
+            index.sort(function(a, b){
+                if (a > b) return 1;
+                else if (a < b) return -1;
+                else return 0;
+            });
 
-    // write out index page
-    fs.writeFileSync('.\\index.html', header + indexContent + footer);
+            // Now, fold over the collection and write out teasers
+            //
+            indexContent = index.reduce(function(p, c){
+                return p + 
+                    c.content + 
+                    '<p><a href="' + 
+                    c.link + 
+                    '" title="Read more...">Read more...</a></p>';
+            }, '');
+        }
 
-    console.log('Done!!!');
+        // write out index page containing all teasers
+        fs.writeFileSync('.\\index.html', header + indexContent + footer);
+        logMessage('Done!');
+    };
     
-    ///////////////////////////////////////////////////////////////////////////
     //
-    // TODO: Need to update RSS template
+    // Update RSS template with new information
     //
+    function updateRssFeed(){
+        // TODO:
+    };
+   
+    // 
+    // And this is all that's too it. Really.
+    //
+    publishPosts();
+    updateIndex();
+    updateRssFeed();
 })();
