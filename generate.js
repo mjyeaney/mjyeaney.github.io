@@ -85,7 +85,8 @@
             parts = [],
             path = '',
             content = null,
-            teaser = null;
+            teaser = null,
+            dateText = '';
 
         // Enumerate all files in /posts
         logMessage('Looking for posts...');
@@ -108,14 +109,17 @@
 
             // The first 3 parts are YYYY-MM-DD; make directories for these
             path = parts.shift();
+            dateText += path;
             if (!fs.existsSync(path)){
                 fs.mkdir(path);
             }
             path += '\\' + parts.shift();
+            dateText += path;
             if (!fs.existsSync(path)){
                 fs.mkdir(path);
             }
             path += '\\' + parts.shift();
+            dateText += path;
             if (!fs.existsSync(path)){
                 fs.mkdir(path);
             }
@@ -134,7 +138,7 @@
 
             // Create index data for teasers
             teaser = {};
-            teaser.date = '';
+            teaser.dateText = dateText;
             teaser.content = getLeadingHtml(content.toString(), 350);
             teaser.link = path.replace('\\', '/').replace('index.html', '');
 
@@ -160,8 +164,8 @@
             // and then writing out the bits.
             //
             index.sort(function(a, b){
-                if (a > b) return 1;
-                else if (a < b) return -1;
+                if (a.dateText > b.dateText) return 1;
+                else if (a.dateText < b.dateText) return -1;
                 else return 0;
             });
 
