@@ -1,6 +1,6 @@
 <div class="post">
 
-<h2>Distributed Systems And Reality</h2>
+<h2>Distributed Systems; here and now</h2>
 
 <p>Building distributed systems is difficult; likewise for ensuring they behave the way 
 they are supposed to. No matter how "simple" of a system you think you may have, you 
@@ -47,7 +47,7 @@ that is normally hidden from the outside world (the database) can bring all memb
 of the system to a standstill, even though those remaining computers are fully 
 functional (see figure below):</p>
 
-<p>-- FIGURE</p>
+<p>-- FIGURE --</p>
 
 <p>We can generalize this concept by rewording it to state that distributed 
 systems are made up of one or more "nodes" (typically called "processes"), all connected 
@@ -57,7 +57,7 @@ the network connection in between, and are typically modeled as
 <em>first-in-first-out</em> (FIFO) queues. Let's redraw our simple system from above 
 using this new terminology:</p>
 
-<p>-- FIGURE</p>
+<p>-- FIGURE --</p>
 
 <p>It is here we begin to see the nondeterminism taking shape: since the channels behave 
 as queues, there is an unknown amount of time between a process sending a message, and 
@@ -72,7 +72,7 @@ worked on by many of us every day - a basic web server over a database. Keeping 
 that the clients (browsers) are part of a distributed system, we can diagram this simple 
 case as follows:</p>
 
-<p>-- FIGURE</p>
+<p>-- FIGURE --</p>
 
 <p>Here, we have 2 clients, each using a browser to talk to a single web server, which 
 communicates with the database. Our engineering question is as follows: is the data 
@@ -85,7 +85,7 @@ pretty startling: the design itself guarantees nothing. In fact, this "simple" l
 example gives way to XXX distinct states that would be very difficult (if not impossible) 
 to test manually. Have a look for yourself:</p>
 
-<p>-- FIGURE</p>
+<p>-- FIGURE --</p>
 
 <h3>Next steps</h3>
 
