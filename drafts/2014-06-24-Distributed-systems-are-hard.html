@@ -1,96 +1,96 @@
 <div class="post">
 
-<h2>Distributed Systems; here and now</h2>
+    <h2>The database isn't enough</h2>
 
-<p>Building distributed systems is difficult; likewise for ensuring they behave the way 
-they are supposed to. No matter how "simple" of a system you think you may have, you 
-cannot escape the physics that govern their behavior. It is all to common to have 
-teams build entire portions of a system, test and deploy them, only to find their 
-behavior under real usage quite different than expected. Often, these errors result 
-from the fact that, by definition, distributed systems are inherently <em>asynchronous</em>, 
-meaning that their behavior is nondeterministic. These nondeterministic effects can 
-be caused by such things as network partitions (yes, they do happen [APHYR]), message 
-transmission delays, or even unanticipated interleaving of system events.</p>
+    <p>Building distributed systems is difficult; likewise for ensuring they behave the way 
+    they are supposed to. No matter how "simple" of a system you think you may have, you 
+    cannot escape the physics that govern their behavior. It is all to common to have 
+    teams build entire portions of a system, test and deploy them, only to find their 
+    behavior under real usage quite different than expected. Often, these errors result 
+    from the fact that, by definition, distributed systems are inherently <em>asynchronous</em>, 
+    meaning that their behavior is nondeterministic. These nondeterministic effects can 
+    be caused by such things as network partitions (yes, they do happen [APHYR]), message 
+    transmission delays, or even unanticipated interleaving of system events.</p>
 
-<p>Regardless of the cause, all of this nondeterminism contributes significant risk to 
-these projects, and can cause teams to never really be sure a system is going to function
-correctly once deployed in the wild. Automated load testing is the usual go-to tool 
-in these cases, and while it will flush out a number of problems, it is expensive to 
-setup (at scale) and can never truly simulate massive load levels. Additionally, most 
-load testing is oriented around "happy paths" through applications, and therefore 
-does not expose systems to the variability encountered in the real world.</p>
+    <p>Regardless of the cause, all of this nondeterminism contributes significant risk to 
+    these projects, and can cause teams to never really be sure a system is going to function
+    correctly once deployed in the wild. Automated load testing is the usual go-to tool 
+    in these cases, and while it will flush out a number of problems, it is expensive to 
+    setup (at scale) and can never truly simulate massive load levels. Additionally, most 
+    load testing is oriented around "happy paths" through applications, and therefore 
+    does not expose systems to the variability encountered in the real world.</p>
 
-<p>So what can we do in order to mitigate these risks? Distributed applications are not 
-going to disappear anytime soon, and the increasing need to build and understand complex 
-systems with confidence means teams cannot continue to take educated guesses when it 
-comes to system stability and correctness.</p>
+    <p>So what can we do in order to mitigate these risks? Distributed applications are not 
+    going to disappear anytime soon, and the increasing need to build and understand complex 
+    systems with confidence means teams cannot continue to take educated guesses when it 
+    comes to system stability and correctness.</p>
 
-<p>One way we can get ahead of the curve is by leveraging modeling and simulation 
-techniques from formal engineering practices. Over the next few posts, I'll be 
-discussing these approaches and using them to troubleshoot the design of a few example 
-systems. Along the way, we'll cover things like discrete event simulations, state 
-spaces, and formal analysis. But...before we start talking shop, lets cover some basics.</p>
+    <p>One way we can get ahead of the curve is by leveraging modeling and simulation 
+    techniques from formal engineering practices. Over the next few posts, I'll be 
+    discussing these approaches and using them to troubleshoot the design of a few example 
+    systems. Along the way, we'll cover things like discrete event simulations, state 
+    spaces, and formal analysis. But...before we start talking shop, lets cover some basics.</p>
 
-<h3>Defining Distributed Systems</h3>
+    <h3>Defining Distributed Systems</h3>
 
-<p>We need to establish what exactly a distributed system consists of. There are 
-a number of definitions out there, but perhaps my favorite from Leslie Lamport:</p>
+    <p>We need to establish what exactly a distributed system consists of. There are 
+    a number of definitions out there, but perhaps my favorite from Leslie Lamport:</p>
 
-<blockquote>"A distributed system is one in which the failure of a computer you didn't
-even know existed can render your own computer unusable."</blockquote>
+    <blockquote>"A distributed system is one in which the failure of a computer you didn't
+    even know existed can render your own computer unusable."</blockquote>
 
-<p>This can demonstrated with a canonical example consisting of a web server, a database, 
-and a client browser (remember - clients are part of a distributed system, too). If 
-the database is unavailable, end-users may be unable to post a completed web form to 
-the server. While this may seem trivial and contrived, the point is clear: a server 
-that is normally hidden from the outside world (the database) can bring all members 
-of the system to a standstill, even though those remaining computers are fully 
-functional (see figure below):</p>
+    <p>This can demonstrated with a canonical example consisting of a web server, a database, 
+    and a client browser (remember - clients are part of a distributed system, too). If 
+    the database is unavailable, end-users may be unable to post a completed web form to 
+    the server. While this may seem trivial and contrived, the point is clear: a server 
+    that is normally hidden from the outside world (the database) can bring all members 
+    of the system to a standstill, even though those remaining computers are fully 
+    functional (see figure below):</p>
 
-<p>-- FIGURE --</p>
+    <p>-- FIGURE --</p>
 
-<p>We can generalize this concept by rewording it to state that distributed 
-systems are made up of one or more "nodes" (typically called "processes"), all connected 
-by "channels". Nodes represent the individual computers that are part of the system - 
-the web server, the database (in the simple case), the client, etc. Channels represent 
-the network connection in between, and are typically modeled as 
-<em>first-in-first-out</em> (FIFO) queues. Let's redraw our simple system from above 
-using this new terminology:</p>
+    <p>We can generalize this concept by rewording it to state that distributed 
+    systems are made up of one or more "nodes" (typically called "processes"), all connected 
+    by "channels". Nodes represent the individual computers that are part of the system - 
+    the web server, the database (in the simple case), the client, etc. Channels represent 
+    the network connection in between, and are typically modeled as 
+    <em>first-in-first-out</em> (FIFO) queues. Let's redraw our simple system from above 
+    using this new terminology:</p>
 
-<p>-- FIGURE --</p>
+    <p>-- FIGURE --</p>
 
-<p>It is here we begin to see the nondeterminism taking shape: since the channels behave 
-as queues, there is an unknown amount of time between a process sending a message, and 
-another process receiving a message. (But remember, kids: real network channels are FAR 
-worse than this, and can drop messages, deliver them out-of-order, and/or delay them. 
-What a bargain!).</p>
+    <p>It is here we begin to see the nondeterminism taking shape: since the channels behave 
+    as queues, there is an unknown amount of time between a process sending a message, and 
+    another process receiving a message. (But remember, kids: real network channels are FAR 
+    worse than this, and can drop messages, deliver them out-of-order, and/or delay them. 
+    What a bargain!).</p>
 
-<h3>Simple Example</h3>
+    <h3>Simple Example</h3>
 
-<p>Let's start with a simple example. We'll define a system probably very similar to those 
-worked on by many of us every day - a basic web server over a database. Keeping in mind 
-that the clients (browsers) are part of a distributed system, we can diagram this simple 
-case as follows:</p>
+    <p>Let's start with a simple example. We'll define a system probably very similar to those 
+    worked on by many of us every day - a basic web server over a database. Keeping in mind 
+    that the clients (browsers) are part of a distributed system, we can diagram this simple 
+    case as follows:</p>
 
-<p>-- FIGURE --</p>
+    <p>-- FIGURE --</p>
 
-<p>Here, we have 2 clients, each using a browser to talk to a single web server, which 
-communicates with the database. Our engineering question is as follows: is the data 
-stored in the correct order with respect to the users' actions? In other words, if 
-these two users were simultaneously updating shared data, would the system design 
-itself afford any guarantee of data integrity?</p>
+    <p>Here, we have 2 clients, each using a browser to talk to a single web server, which 
+    communicates with the database. Our engineering question is as follows: is the data 
+    stored in the correct order with respect to the users' actions? In other words, if 
+    these two users were simultaneously updating shared data, would the system design 
+    itself afford any guarantee of data integrity?</p>
 
-<p>Using tools that we'll be looking at (and coding) in upcoming posts, we learn something 
-pretty startling: the design itself guarantees nothing. In fact, this "simple" little 
-example gives way to XXX distinct states that would be very difficult (if not impossible) 
-to test manually. Have a look for yourself:</p>
+    <p>Using tools that we'll be looking at (and coding) in upcoming posts, we learn something 
+    pretty startling: the design itself guarantees nothing. In fact, this "simple" little 
+    example gives way to XXX distinct states that would be very difficult (if not impossible) 
+    to test manually. Have a look for yourself:</p>
 
-<p>-- FIGURE --</p>
+    <p>-- FIGURE --</p>
 
-<h3>Next steps</h3>
+    <h3>Next steps</h3>
 
-<p>Hopefully, I've made a strong enough case to make think about the systems you've built,
-and exactly what guarantees (if any) they have. If that sounds interesting, stay tuned.</p>
+    <p>Hopefully, I've made a strong enough case to make think about the systems you've built,
+    and exactly what guarantees (if any) they have. If that sounds interesting, stay tuned.</p>
 
 </div>
 
