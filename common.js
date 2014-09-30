@@ -1,4 +1,4 @@
-var host = 'mjyeaney.gitbub.io';
+var host = 'mjyeaney.github.io';
 
 if ((host === location.host) && (location.protocol !== 'https:')){
     location.protocol = 'https:';
