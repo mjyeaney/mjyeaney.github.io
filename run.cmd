@@ -1,3 +1,3 @@
 @echo off
-start /i python -m SimpleHTTPServer
+start /i /b python -m SimpleHTTPServer
 explorer http://localhost:8000
