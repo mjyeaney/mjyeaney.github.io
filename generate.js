@@ -8,12 +8,14 @@
     //
     // Module requirements
     //
+    
     var fs = require('fs');
     var moment = require('moment');
 
     // 
     // Read in the basics for content generation
     //
+    
     var header = fs.readFileSync('header.html');
     var footer = fs.readFileSync('footer.html');
     var index = [];
@@ -21,6 +23,7 @@
     // 
     // General message logging method; displays time, etc.
     //
+
     function logMessage(message){
         var msg = [];
         msg.push(moment().format('HH:mm:ss'));
@@ -36,7 +39,7 @@
     // Adapted from: http://blog.stevenlevithan.com/archives/get-html-summary
     //
 
-    function getLeadingHtml (input, maxChars) {
+    function getLeadingHtml (input) {
         // token matches a word, tag, or special character
         var	token = /\w+|[^\w<]|<(\/)?(\w+)[^>]*(\/)?>|</g,
             selfClosingTag = /^(?:[hb]r|img)$/i,
@@ -47,7 +50,7 @@
 
         // Set the default for the max number of characters
         // (only counts characters outside of HTML tags)
-        maxChars = maxChars || 250;
+        var maxChars = 500;
 
         while ((charCount < maxChars) && (match = token.exec(input))) {
             // If this is an HTML tag
@@ -65,6 +68,9 @@
             }
         }
 
+        // add the elipsis
+        output += '...';
+
         // Close any tags which were left open
         var i = openTags.length;
         while (i--) output += "</" + openTags[i] + ">";
@@ -79,7 +85,7 @@
     //
 
     function publishPosts(){
-        var posts = fs.readdirSync('.\\posts'),
+        var posts = fs.readdirSync('./posts'),
             j = 0,
             name = '',
             parts = [],
@@ -102,7 +108,7 @@
             logMessage('Found ' + posts[j]);
 
             // kill the extension
-            name = posts[j].replace('.html', '');
+            name = posts[j].replace('.html', '').toLowerCase();
 
             // split the filename into parts (break on '-')
             parts = name.split('-');
@@ -113,33 +119,35 @@
             if (!fs.existsSync(path)){
                 fs.mkdir(path);
             }
-            path += '\\' + parts.shift();
+            path += '/' + parts.shift();
             dateText += path;
             if (!fs.existsSync(path)){
                 fs.mkdir(path);
             }
-            path += '\\' + parts.shift();
+            path += '/' + parts.shift();
             dateText += path;
             if (!fs.existsSync(path)){
                 fs.mkdir(path);
             }
 
             // Now, create a directory with the post name
-            path += '\\' + parts.join('-');
+            path += '/' + parts.join('-');
             if (!fs.existsSync(path)){
                 fs.mkdir(path);
             }
 
             // Read the post content, wrap with header/footer, and write out
             // as the index file.
-            content = fs.readFileSync('.\\posts\\' + posts[j]);
-            path += '\\index.html';
+            content = fs.readFileSync('./posts/' + posts[j]);
+            path += '/index.html';
             fs.writeFileSync(path, header + content + footer);
 
             // Create index data for teasers
             teaser = {};
             teaser.dateText = dateText;
-            teaser.content = getLeadingHtml(content.toString(), 350);
+            teaser.content = getLeadingHtml(content.toString());
+
+            // This may not be needed anymore - keep an eye on it.
             teaser.link = path.replace('\\', '/').replace('index.html', '');
 
             // Add the teaser structure to our master collection for later.
@@ -176,12 +184,12 @@
                     c.content + 
                     '<p><a href="' + 
                     c.link + 
-                    '" title="Read more...">Read more...</a></p>';
+                    '" title="Read more">Read more</a></p>';
             }, '');
         }
 
         // write out index page containing all teasers
-        fs.writeFileSync('.\\index.html', header + indexContent + footer);
+        fs.writeFileSync('./index.html', header + indexContent + footer);
         logMessage('Done!');
     };
     
