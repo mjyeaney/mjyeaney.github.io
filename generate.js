@@ -68,9 +68,6 @@
             }
         }
 
-        // add the elipsis
-        output += '...';
-
         // Close any tags which were left open
         var i = openTags.length;
         while (i--) output += "</" + openTags[i] + ">";
