@@ -6,6 +6,8 @@ h1, h2, h3, h4, h5, h6 { font-weight: 100; }
 a, a:visited, a:active, a:hover { outline: none; text-decoration: underline; color: #06f; }
 table, p, blockquote, ol, ul { margin-bottom: 1em; text-shadow: 1px 1px #eee; }
 p { text-align: justify; }
+p.center { text-align: center; }
+
 blockquote { 
     margin: 2em; 
     font-style: italic; 
@@ -72,6 +74,7 @@ div.mugShot img { width: 200px; height: 200px; border: 5px solid #012; border-ra
 
 .post h2 { font-weight: 400; margin-bottom: 1em; text-align: left; color: #25458E; }
 .post h3 { font-weight: bold; font-size: 1em; margin-bottom: 1em; }
+.post img { width: 100%; max-width: 600px; border: 1px solid #555; box-shadow: 0 0 20px #888; }
 .noItems { font-style: italic; }
 
 @media (max-height: 850px){

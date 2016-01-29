@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, user-scalable=no">
-        <title>michael.yeaney :: about me</title>
+        <title>michael.yeaney :: blog</title>
         <link href="//fonts.googleapis.com/css?family=Open+Sans:400,300,600" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" href="/core.css" />
     </head>
@@ -22,13 +22,29 @@
         <div id="content">
             <div class="wrapper">
                 <div class="leftCol">
-                    <div class="post">
-                        <h2>About Me</h2>
-                        <p>A distributed software developer/junkie; responsible for projects ranging from mainframe integration, real-time decision-support systems, to federated security models and implementations. Working in environments ranging from academia, biotech/pharmaceuticals, manufacturing and Six-Sigma, I have considerable experience working with disparate systems, the teams that own them, and the constraints faced by each. </p>
-                        <p>Recently, I've been researching and applying formal methods of distributed/concurrent system
-                        design in order to further cut risk and assess uncertainty during the software development lifecycle. I'm also deeply engaged in federated security models and how they provide a pillar of access control around the data that drives us.</p>
-                    </div>
-                </div>
+<div class="post">
+
+    <h2>CloudTimeCheck: Visualize Time Differences</h2>
+    
+    <p>Keeping accurate time between computers on a network is a notorously hard
+        problem, yet it's also one many of us simply don't think about on a day-to-day basis.
+        However, time-keeping is such a fundamental concept to many things we use such computers for, 
+        that when things go wrong, they can get <em>really strange</em>.</p>
+        
+    <p>Yet, many language / frameworks provide no acknowledgement that time may be nothing more than
+        and illusion. For example, the .NET method DateTime.UtcNow gives the illusion that no matter 
+        where your are (geographically) or what computer you are using, you will get the exact time 
+        in UTC format.</p> 
+        
+    <p>So what can we do? Measure. That's why I built CloudTimeCheck: to visualize how bad/etc things are...</p>
+    
+    <h3>CloudTimeCheck</h3>
+    
+    <p>CloudTimeCheck is a web application built on NodeJS, running on Windows Azure. It runs a set of tests 
+        that estimate the time differences between the client (browser), web server, and the Azure Storage fabric.</p>
+        
+    <p class="center"><img src="/media/cloudtimecheck-small.png" alt="CloudTimeCheck small image" /></p>
+</div>                </div>
 
                 <div class="rightCol">
                     <div class="mugShot">
@@ -50,7 +66,7 @@
                 <p>&copy; 2016, Michael J. Yeaney, All Rights Reserved</p>
             </div>
         </div>
-
+        
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
         <script src="/common.js"></script>
         <script>

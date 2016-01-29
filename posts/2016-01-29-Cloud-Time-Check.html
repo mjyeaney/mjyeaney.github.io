@@ -1,0 +1,23 @@
+<div class="post">
+
+    <h2>CloudTimeCheck: Visualize Time Differences</h2>
+    
+    <p>Keeping accurate time between computers on a network is a notorously hard
+        problem, yet it's also one many of us simply don't think about on a day-to-day basis.
+        However, time-keeping is such a fundamental concept to many things we use such computers for, 
+        that when things go wrong, they can get <em>really strange</em>.</p>
+        
+    <p>Yet, many language / frameworks provide no acknowledgement that time may be nothing more than
+        and illusion. For example, the .NET method DateTime.UtcNow gives the illusion that no matter 
+        where your are (geographically) or what computer you are using, you will get the exact time 
+        in UTC format.</p> 
+        
+    <p>So what can we do? Measure. That's why I built CloudTimeCheck: to visualize how bad/etc things are...</p>
+    
+    <h3>CloudTimeCheck</h3>
+    
+    <p>CloudTimeCheck is a web application built on NodeJS, running on Windows Azure. It runs a set of tests 
+        that estimate the time differences between the client (browser), web server, and the Azure Storage fabric.</p>
+        
+    <p class="center"><img src="/media/cloudtimecheck-small.png" alt="CloudTimeCheck small image" /></p>
+</div>

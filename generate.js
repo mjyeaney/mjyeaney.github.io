@@ -114,22 +114,26 @@
             path = parts.shift();
             dateText += path;
             if (!fs.existsSync(path)){
+                logMessage('Creating ' + path + '...');
                 fs.mkdir(path);
             }
             path += '/' + parts.shift();
             dateText += path;
             if (!fs.existsSync(path)){
+                logMessage('Creating ' + path + '...');
                 fs.mkdir(path);
             }
             path += '/' + parts.shift();
             dateText += path;
             if (!fs.existsSync(path)){
+                logMessage('Creating ' + path + '...');
                 fs.mkdir(path);
             }
 
             // Now, create a directory with the post name
             path += '/' + parts.join('-');
             if (!fs.existsSync(path)){
+                logMessage('Creating ' + path + '...');
                 fs.mkdir(path);
             }
 
@@ -137,6 +141,7 @@
             // as the index file.
             content = fs.readFileSync('./posts/' + posts[j]);
             path += '/index.html';
+            logMessage('Creating ' + path + '...');
             fs.writeFileSync(path, header + content + footer);
 
             // Create index data for teasers
@@ -181,7 +186,7 @@
                     c.content + 
                     '<p><a href="' + 
                     c.link + 
-                    '" title="Read more">Read more</a></p>';
+                    '" title="Read more">Read more...</a></p>';
             }, '');
         }
 
