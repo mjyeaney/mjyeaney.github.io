@@ -101,11 +101,11 @@
         }
 
         // Walk each file found (what about ordering?)
-        for (j=0; j < posts.length; j++){
-            logMessage('Found ' + posts[j]);
+        posts.map(function(p){
+            logMessage('Found ' + p);
 
             // kill the extension
-            name = posts[j].replace('.html', '').toLowerCase();
+            name = p.replace('.html', '').toLowerCase();
 
             // split the filename into parts (break on '-')
             parts = name.split('-');
@@ -117,12 +117,14 @@
                 logMessage('Creating ' + path + '...');
                 fs.mkdir(path);
             }
+            
             path += '/' + parts.shift();
             dateText += path;
             if (!fs.existsSync(path)){
                 logMessage('Creating ' + path + '...');
                 fs.mkdir(path);
             }
+            
             path += '/' + parts.shift();
             dateText += path;
             if (!fs.existsSync(path)){
@@ -139,7 +141,7 @@
 
             // Read the post content, wrap with header/footer, and write out
             // as the index file.
-            content = fs.readFileSync('./posts/' + posts[j]);
+            content = fs.readFileSync('./posts/' + p);
             path += '/index.html';
             logMessage('Creating ' + path + '...');
             fs.writeFileSync(path, header + content + footer);
@@ -154,7 +156,7 @@
 
             // Add the teaser structure to our master collection for later.
             index.push(teaser);
-        }
+        });
     };
 
     //
