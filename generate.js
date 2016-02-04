@@ -184,7 +184,7 @@
             indexContent = index.reduce(function(p, c){
                 return p + 
                     c.content + 
-                    '<p><a href="' + 
+                    '<p class="teaserLink"><a href="' + 
                     c.link + 
                     '" title="Read more">Read more...</a></p>';
             }, '');

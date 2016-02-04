@@ -8,6 +8,6 @@ if ((host === location.host) && (location.protocol !== 'https:')){
 
 $(function(){
     $('a.hamburger').click(function(){
-        $('#header ul').toggle();
+        $('#header ul').toggleClass('active');
     });
 });
