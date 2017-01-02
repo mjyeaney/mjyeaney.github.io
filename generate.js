@@ -166,7 +166,7 @@
 
     function updateIndex(){
         // Initally, there are no posts.
-        var indexContent = '<p class="noItems">No active posts!!!</p>';
+        var indexContent = '<div class="post"><h2>Hmmm...somthing\'s Missing!!!</h2><p class="noItems">No active posts - please check back again later.</p></div>';
 
         logMessage('Creating index page(s)...');
 
