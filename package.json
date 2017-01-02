@@ -1,0 +1,23 @@
+{
+  "name": "mjyeaney.github.io",
+  "version": "1.0.0",
+  "description": "Personal blog site and static generator",
+  "main": "generate.js",
+  "dependencies": {
+    "moment": "^2.17.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mjyeaney/mjyeaney.github.io.git"
+  },
+  "author": "Michael Yeaney",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mjyeaney/mjyeaney.github.io/issues"
+  },
+  "homepage": "https://github.com/mjyeaney/mjyeaney.github.io#readme"
+}
