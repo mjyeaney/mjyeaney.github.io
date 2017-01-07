@@ -151,24 +151,26 @@
 
         logMessage('Creating index page(s)...');
 
-        // Create index page content by sorting by date first,
-        // and then writing out the bits.
-        //
-        index.sort(function(a, b){
-            if (a.dateText > b.dateText) return 1;
-            else if (a.dateText < b.dateText) return -1;
-            else return 0;
-        });
+        if (index.length > 0){
+            // Create index page content by sorting by date first,
+            // and then writing out the bits.
+            //
+            index.sort(function(a, b){
+                if (a.dateText > b.dateText) return 1;
+                else if (a.dateText < b.dateText) return -1;
+                else return 0;
+            });
 
-        // Now, fold over the collection and write out teasers
-        //
-        indexContent = index.reduce(function(p, c){
-            return p + 
-                '<div class="post">' +
-                '<h2><a href="' + c.link + '" title="Read more">' + c.title + '</a></h2>' +
-                '<p>' + c.intro + '</p>' + 
-                '</div>';
-        }, '');
+            // Now, fold over the collection and write out teasers
+            //
+            indexContent = index.reduce(function(p, c){
+                return p + 
+                    '<div class="post">' +
+                    '<h2><a href="' + c.link + '" title="Read more">' + c.title + '</a></h2>' +
+                    '<p>' + c.intro + '</p>' + 
+                    '</div>';
+            }, '');
+        }
 
         // write out index page containing all teasers
         fs.writeFileSync('./index.html', header + indexContent + footer);
