@@ -47,12 +47,14 @@
         var tags = $('div.post').data('tags').split(',');
         var teaser = $('div.post .teaser').html();
         var postDate = $('div.post').data('date');
+        var authorInfo = $('div.authorInfo').html();
 
         // Package up and return
         return {
             title: title,
             tags: tags,
             intro: teaser,
+            authorInfo: authorInfo,
             dateText: postDate
         };
     };
@@ -152,12 +154,11 @@
         logMessage('Creating index page(s)...');
 
         if (index.length > 0){
-            // Create index page content by sorting by date first,
-            // and then writing out the bits.
+            // Create index page content by sorting by date (newest first)
             //
             index.sort(function(a, b){
-                if (a.dateText > b.dateText) return 1;
-                else if (a.dateText < b.dateText) return -1;
+                if (a.dateText > b.dateText) return -1;
+                else if (a.dateText < b.dateText) return 1;
                 else return 0;
             });
 
@@ -167,6 +168,7 @@
                 return p + 
                     '<div class="post">' +
                     '<h2><a href="' + c.link + '" title="Read more">' + c.title + '</a></h2>' +
+                    '<div class="authorInfo">' + c.authorInfo + '</div>' +
                     '<p>' + c.intro + '</p>' + 
                     '</div>';
             }, '');
