@@ -4,6 +4,7 @@
   "description": "Personal blog site and static generator",
   "main": "generate.js",
   "dependencies": {
+    "cheerio": "^0.22.0",
     "moment": "^2.17.1"
   },
   "devDependencies": {},

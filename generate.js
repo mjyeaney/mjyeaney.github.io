@@ -149,7 +149,7 @@
             // Create index data for teasers
             teaser = {};
             teaser.dateText = dateText;
-            teaser.content = getLeadingHtml(content.toString());
+            //teaser.content = getLeadingHtml(content.toString());
 
             // This may not be needed anymore - keep an eye on it.
             teaser.link = path.replace('\\', '/').replace('index.html', '');
@@ -170,27 +170,24 @@
 
         logMessage('Creating index page(s)...');
 
-        // However, if we find some....
-        if (index.length > 0){
-            // Create index page content by sorting by date first,
-            // and then writing out the bits.
-            //
-            index.sort(function(a, b){
-                if (a.dateText > b.dateText) return 1;
-                else if (a.dateText < b.dateText) return -1;
-                else return 0;
-            });
+        // Create index page content by sorting by date first,
+        // and then writing out the bits.
+        //
+        index.sort(function(a, b){
+            if (a.dateText > b.dateText) return 1;
+            else if (a.dateText < b.dateText) return -1;
+            else return 0;
+        });
 
-            // Now, fold over the collection and write out teasers
-            //
-            indexContent = index.reduce(function(p, c){
-                return p + 
-                    c.content + 
-                    '<p class="teaserLink"><a href="' + 
-                    c.link + 
-                    '" title="Read more">Read more...</a></p>';
-            }, '');
-        }
+        // Now, fold over the collection and write out teasers
+        //
+        indexContent = index.reduce(function(p, c){
+            return p + 
+                c.content + 
+                '<p class="teaserLink"><a href="' + 
+                c.link + 
+                '" title="Read more">Read more...</a></p>';
+        }, '');
 
         // write out index page containing all teasers
         fs.writeFileSync('./index.html', header + indexContent + footer);
