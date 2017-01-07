@@ -11,6 +11,7 @@
     
     var fs = require('fs');
     var moment = require('moment');
+    var cheerio = require('cheerio');
 
     // 
     // Read in the basics for content generation
@@ -33,45 +34,27 @@
     };
 
     //
-    // Creates a 'teaser' from the post HTML, but instead of a simple substring,
-    // obeys open/closed HTML tags so the teaser markup remains valid.
-    //
-    // Adapted from: http://blog.stevenlevithan.com/archives/get-html-summary
+    // Gets summary information from the post markup, including the tags,
+    // teaser information, and post date.
     //
 
-    function getLeadingHtml (input) {
-        // token matches a word, tag, or special character
-        var	token = /\w+|[^\w<]|<(\/)?(\w+)[^>]*(\/)?>|</g,
-            selfClosingTag = /^(?:[hb]r|img)$/i,
-            output = "",
-            charCount = 0,
-            openTags = [],
-            match;
+    function getSummaryInformation (input) {
+        // Load / parse content
+        var $ = cheerio.load(input);
 
-        // Set the default for the max number of characters
-        // (only counts characters outside of HTML tags)
-        var maxChars = 500;
+        // Get title, tag, teaser, and date information
+        var title = $('div.post .title').html();
+        var tags = $('div.post').data('tags').split(',');
+        var teaser = $('div.post .teaser').html();
+        var postDate = $('div.post').data('date');
 
-        while ((charCount < maxChars) && (match = token.exec(input))) {
-            // If this is an HTML tag
-            if (match[2]) {
-                output += match[0];
-                // If this is not a self-closing tag
-                if (!(match[3] || selfClosingTag.test(match[2]))) {
-                    // If this is a closing tag
-                    if (match[1]) openTags.pop();
-                    else openTags.push(match[2]);
-                }
-            } else {
-                charCount += match[0].length;
-                if (charCount <= maxChars) output += match[0];
-            }
-        }
-
-        // Close any tags which were left open
-        var i = openTags.length;
-        while (i--) output += "</" + openTags[i] + ">";
-        return output;
+        // Package up and return
+        return {
+            title: title,
+            tags: tags,
+            intro: teaser,
+            dateText: postDate
+        };
     };
     
     //
@@ -147,9 +130,7 @@
             fs.writeFileSync(path, header + content + footer);
 
             // Create index data for teasers
-            teaser = {};
-            teaser.dateText = dateText;
-            //teaser.content = getLeadingHtml(content.toString());
+            teaser = getSummaryInformation(content.toString());
 
             // This may not be needed anymore - keep an eye on it.
             teaser.link = path.replace('\\', '/').replace('index.html', '');
@@ -183,22 +164,15 @@
         //
         indexContent = index.reduce(function(p, c){
             return p + 
-                c.content + 
-                '<p class="teaserLink"><a href="' + 
-                c.link + 
-                '" title="Read more">Read more...</a></p>';
+                '<div class="post">' +
+                '<h2><a href="' + c.link + '" title="Read more">' + c.title + '</a></h2>' +
+                '<p>' + c.intro + '</p>' + 
+                '</div>';
         }, '');
 
         // write out index page containing all teasers
         fs.writeFileSync('./index.html', header + indexContent + footer);
         logMessage('Done!');
-    };
-    
-    //
-    // Update RSS template with new information
-    //
-    function updateRssFeed(){
-        // TODO:
     };
    
     // 
@@ -206,5 +180,4 @@
     //
     publishPosts();
     updateIndex();
-    updateRssFeed();
 })();
