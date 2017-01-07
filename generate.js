@@ -166,10 +166,10 @@
             //
             indexContent = index.reduce(function(p, c){
                 return p + 
-                    '<div class="post">' +
+                    '<div class="post frontPage">' +
                     '<h2><a href="' + c.link + '" title="Read more">' + c.title + '</a></h2>' +
-                    '<div class="authorInfo">' + c.authorInfo + '</div>' +
                     '<p>' + c.intro + '</p>' + 
+                    '<div class="authorInfo">' + c.authorInfo + '</div>' +
                     '</div>';
             }, '');
         }
