@@ -8,5 +8,5 @@ Except that Node won't let us (easily) remove a folder tree that isn't empty.
 
 #>
 
-ls | where { $_ -match "\d{4}" } | rm -Force -Recurse
+ls | where { $_.Name -match "\d{4}" } | rm -Force -Recurse
 node .\generate.js
