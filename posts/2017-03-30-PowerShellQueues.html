@@ -1,0 +1,181 @@
+<div class="post" data-tags="PowerShell, Azure" data-date="2017-03-30">
+
+    <h2 class="title">Interacting with Azure Queues from PowerShell</h2>
+    <div class="authorInfo">Michael Yeaney <span class="dateText">March 30, 2017</span></div>
+
+    <p class="teaser">In this post, I want to show how you can communicate between 2 (or more) machines with Azure Storage Queues
+    using PowerShell. This type of communication naturally gives way to the <a href="https://docs.microsoft.com/en-us/azure/architecture/patterns/competing-consumers" title="Competing Consumer Pattern">competing consumer pattern</a>, which is found 
+    throughout many high-scale systems. This pattern is quite useful for spreading work items across a pool 
+    of available compute resources in order to optimize throughput and availability.</p>
+
+    <h3>Basic Architecture</h3>
+
+
+
+    <h3>Why PowerShell?</h3>
+
+    <p>Well, why not? In all seriousness, any language can take advantage of the techniques shown here, 
+        even if you're just using the <a href="https://docs.microsoft.com/en-us/rest/api/" title="Azure REST API">Azure Storage REST API</a> directly. The original project I was working on 
+        already involved PowerShell scripts - your applications may have different requirements. Use what works for you!</p>
+
+    <h3>Prerequisites</h3>
+
+    <p>The following code is based on PowerShell v.5.1, along with the Azure PowerShell Cmdlets v.3.6.0 and Azure SDK v.2.9. You 
+        can easily install these items by using the Web Platform Installer, available for 
+        download here: <a href="https://www.microsoft.com/web/downloads/platform.aspx" title="Web Platform Installer Download">https://www.microsoft.com/web/downloads/platform.aspx</a></p>
+
+    <h3>The Code</h3>
+
+    <p>The underlying code is (un-)surprisingly very simple: a client application sends messages to a queue endpoint, 
+        while one or more receivers (or "listeners") read those messages from the queue and take action.</p>
+
+    <p>The sender code (shown below) is fairly straightforward, sending some arbitrary messages in a loop. In this case, 
+        we are just sending a simple test string with a DateTime value appended on to the end - just enough to see the different 
+        messages</p>
+    </p>
+
+    <pre>
+<#
+
+DISCLAIMER: THIS SCRIPT IS OFFERED "AS IS" WITH NO WARRANTY. IT IS RECOMMENDED THAT YOU  
+RUN IN A TEST ENVIRONMENT BEFORE USING IN YOUR PRODUCTION ENVIRONMENT.
+
+#>
+
+#
+# Variables / consts
+#
+$storageAccountResourceGroup = "--Your Resource Group Name--"
+$storageAccountName = "--Your Storage Account Name--"
+$queueName = "--Your Queue Name--"
+
+#
+# Log message function
+#
+function LogMsg($msg){
+    $now = [DateTime]::Now
+    Write-Host "[$now]: $msg"
+}
+
+#
+# Get primary storage key
+#
+LogMsg("Getting storage account key...")
+$keys = Get-AzureRmStorageAccountKey `
+            -ResourceGroupName $storageAccountResourceGroup `
+            -Name $storageAccountName
+$storageKey = $keys[0].Value
+
+#
+# Get storage account context
+#
+LogMsg("Getting storage context...")
+$context = New-AzureStorageContext `
+                -StorageAccountName $storageAccountName `
+                -StorageAccountKey $storageKey
+
+#
+# Lookup queue to use
+#
+LogMsg("Locating message queue...")
+$storageQueue = Get-AzureStorageQueue `
+                    -Name $queueName `
+                    -Context $context
+
+#
+# Create some sample messages (about 25)
+#
+LogMsg "Starting message send..."
+for ($i = 0; $i -lt 25; $i++){
+    $now = [DateTime]::Now.ToString()
+    $payload = "This is just a test message sent at $now"
+
+    $qmsg = New-Object Microsoft.WindowsAzure.Storage.Queue.CloudQueueMessage $payload
+    $storageQueue.CloudQueue.AddMessage($qmsg)
+    
+    Write-Host "Sent message $i..."
+}
+LogMsg "Message send complete!"
+    </pre>
+
+    <p>On the receiving end, we see a very similar pattern - run in a tight loop while reading messages from the queue, or 
+        optionally sleeping for a bit if there are no messages available. However, notice in this case we have a simple exponential 
+        backoff built in to progressively sleep longer intervals when no messages are available. This avoids endless polling of the queue, 
+        and keeps the storage transactions to a minimum.</p>
+
+    <pre>
+<#
+
+DISCLAIMER: THIS SCRIPT IS OFFERED "AS IS" WITH NO WARRANTY. IT IS RECOMMENDED THAT YOU  
+RUN IN A TEST ENVIRONMENT BEFORE USING IN YOUR PRODUCTION ENVIRONMENT.
+
+#>
+
+#
+# Variables / consts
+#
+$storageAccountResourceGroup = "--Your Resource Group Name--"
+$storageAccountName = "--Your Storage Account Name--"
+$queueName = "--Your Queue Name--"
+
+#
+# Log message function
+#
+function LogMsg($msg){
+    $now = [DateTime]::Now
+    Write-Host "[$now]: $msg"
+}
+
+#
+# Get primary storage key
+#
+LogMsg("Getting storage account key...")
+$keys = Get-AzureRmStorageAccountKey `
+            -ResourceGroupName $storageAccountResourceGroup `
+            -Name $storageAccountName
+$storageKey = $keys[0].Value
+
+#
+# Get storage account context
+#
+LogMsg("Getting storage context...")
+$context = New-AzureStorageContext `
+                -StorageAccountName $storageAccountName `
+                -StorageAccountKey $storageKey
+
+#
+# Lookup queue to use
+#
+LogMsg("Locating message queue...")
+$storageQueue = Get-AzureStorageQueue `
+                    -Name $queueName `
+                    -Context $context
+
+#
+# Read queue messages, with a back-off on sleeps
+#
+$initSleep = 250
+$sleepTime = $initSleep
+LogMsg "Starting listener..."
+while ($true){
+    $qmsg = $storageQueue.CloudQueue.GetMessage($null)
+
+    if ($qmsg -ne $null){
+        $sleepTime = $initSleep
+        Write-Host $qmsg.AsString
+        $storageQueue.CloudQueue.DeleteMessage($qmsg)
+    } else {
+        # Apply an exponential-backoff sleep
+        sleep -Milliseconds $sleepTime
+        $sleepTime *= 2
+        $sleepTime = [Math]::Min(5000, $sleepTime)
+        LogMsg "Sleep interval now: $sleepTime"
+    }
+}
+    </pre>
+
+    <h3>Putting it together</h3>
+    
+    <p>Local &lt;--&gt; Azure VM Example</p>
+
+</div>
