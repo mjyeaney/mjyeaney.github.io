@@ -79,8 +79,18 @@ div.mugShot img { width: 200px; height: 200px; border: 2px solid #012; border-ra
 .post .authorInfo .dateText { padding-left: 1em; color: #888;}
 .post img { width: 100%; max-width: 600px; border: 1px solid #555; box-shadow: 0 0 20px #888; }
 
+.post.frontPage h2 a:hover { text-decoration: underline; }
 .post.frontPage .authorInfo { margin-top: 1em; }
 /* .noItems { font-style: italic; } */
+
+pre {
+    background-color: #eee;
+    padding: 1em 1em 0 1em;
+    margin-bottom: 1em;
+    overflow: auto;
+}
+
+span.inlineCode { display: inline; font-family: Courier; padding: 0; }
 
 @media (max-height: 900px){
     body { font-size: 15px; }

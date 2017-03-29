@@ -22,9 +22,72 @@
         <div id="content">
             <div class="wrapper">
                 <div class="leftCol">
-<div class="post frontPage"><h2><a href="2017/03/29/powershellfun/" title="Read more">Having Fun with PowerShell - Recursive Folders</a></h2><p>While playing around with some PowerShell scripts today, I was looking for 
-        some fun (??) ways to get a view of how big a folder and all of its&apos; contents are. This is arguably 
-        pretty trivial, but we&apos;re just having fun, right? :-)</p><div class="authorInfo">Michael Yeaney <span class="dateText">March 29, 2017</span></div></div>                </div>
+<div class="post" data-tags="PowerShell, Fun" data-date="2017-03-29">
+
+    <h2 class="title">Having Fun with PowerShell - Recursive Folders</h2>
+    <div class="authorInfo">Michael Yeaney <span class="dateText">March 29, 2017</span></div>
+    
+    <p class="teaser">While playing around with some PowerShell scripts today, I was looking for 
+        some fun (??) ways to get a view of how big a folder and all of its' contents are. This is arguably 
+        pretty trivial, but we're just having fun, right? :-)</p>
+        
+    <p>Here's the basic script I came up with:</p> 
+
+    <pre>
+function Get-ChildItemSizes(){
+    ls | % -Begin { $results = @() } -Process {
+        $size = ls $_ -Recurse | 
+            measure -Sum -Property Length -ErrorAction SilentlyContinue | 
+            select -ExpandProperty Sum
+        $thisOne = New-Object System.Object
+        $thisOne | Add-Member -Type NoteProperty -Name "Directory" -Value $_.Name
+        $thisOne | Add-Member -Type NoteProperty -Name "Size" -Value $size
+        $results += $thisOne
+    } -End { Write-Output $results }
+}
+    </pre>
+
+    <p>This gives is the following sample output result set: </p>
+
+    <pre>
+PS:\ Get-ChildItemSizes
+
+Directory       Size
+---------       ----
+Folder B         578
+Folder C          23
+Folder A        1031
+    </pre>
+
+    <p>This is exactly the form we're looking for, as it allows us to answer questions
+        such as "Show me the largest folder tree", which traslates into this:</p>
+    
+    <pre>
+PS:\ Get-ChildItemSizes | sort -Property Size -Decending | select -First 1
+
+Directory       Size
+---------       ----
+Folder A        1031
+    </pre>
+
+    <p>Alternatively, we could answer the question os "Show me the smallest folder tree", 
+        which simply becomes this:</p>
+
+    <pre>
+PS:\ Get-ChildItemSizes | sort -Property Size -Ascending | select -First 1
+
+Directory       Size
+---------       ----
+Folder C          23
+    </pre>
+
+    <p>The core of this snippet is simply a data pipeline based on the output of the <span class="inlineCode">ls</span> 
+        (or rather <span class="inlineCode">Get-ChildItem</span>) cmdlet. Each object in this output stream is used to "dive deep" 
+        into the the recursive structure underneath,  aggregating the sum of the item sizes. The remainder of the process block is simply collecting 
+        results leveraging a local collection of NoteProperty objects.</p>
+
+    <p>Nother to terribly complex, but a fun little experiment. Enjoy!!!</p>
+</div>                </div>
 
                 <div class="rightCol">
                     <div class="mugShot">

@@ -1,7 +1,7 @@
 //
-// My embarassingly simple blog generator. Pretty simple, doesn't do much;
-// honestly, Jekyll is further ahead. But this isn't bound to one platform,
-// and only requires static HTML hosting. And...because fun.
+// Embarassingly simple blog generator. Pretty simple, doesn't do much, 
+// isn't bound to one platform, and only requires static HTML hosting. 
+// And mostly...because fun.
 //
 
 (function(){
