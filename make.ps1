@@ -9,4 +9,7 @@ Except that Node won't let us (easily) remove a folder tree that isn't empty.
 #>
 
 ls | where { $_.Name -match "\d{4}" } | rm -Force -Recurse
+Write-Host "Waiting for deletion to wrap-up..."
+sleep 5
+Write-Host "Generating site structure..."
 node .\generate.js

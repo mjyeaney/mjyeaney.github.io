@@ -8,23 +8,21 @@
     //
     // Module requirements
     //
-    
     var fs = require('fs');
     var moment = require('moment');
     var cheerio = require('cheerio');
 
     // 
-    // Read in the basics for content generation
+    // Read in the chunks used for content generation
     //
-    
     var header = fs.readFileSync('header.html');
     var footer = fs.readFileSync('footer.html');
+    var disqus = fs.readFileSync('disqus.html');
     var index = [];
 
     // 
     // General message logging method; displays time, etc.
     //
-
     function logMessage(message){
         var msg = [];
         msg.push(moment().format('HH:mm:ss'));
@@ -37,7 +35,6 @@
     // Gets summary information from the post markup, including the tags,
     // teaser information, and post date.
     //
-
     function getSummaryInformation (input) {
         // Load / parse content
         var $ = cheerio.load(input);
@@ -65,7 +62,6 @@
     // Note that each post has a date field attached to it via attributes
     // contained within the markup (file system stamps are not enough!!!).
     //
-
     function publishPosts(){
         var posts = fs.readdirSync('./posts'),
             j = 0,
@@ -129,7 +125,20 @@
             content = fs.readFileSync('./posts/' + p);
             path += '/index.html';
             logMessage('Creating ' + path + '...');
-            fs.writeFileSync(path, header + content + footer);
+
+            // We need the disqus config options
+            var pageIdentifier = path.replace(/\//g, '').replace('index.html', '');
+            var diqusConfig = `
+                <script>
+                var disqus_config = function () {
+                    this.page.url = '/${path}';
+                    this.page.identifier = ${pageIdentifier};
+                };
+                </script>
+            `;
+            
+            // Write out the chunk of content
+            fs.writeFileSync(path, header + content + diqusConfig + disqus + footer);
 
             // Create index data for teasers
             teaser = getSummaryInformation(content.toString());
@@ -146,7 +155,6 @@
     // Index page generation...reads through posts, generates teasers, organizes 
     // based on date, and creates pages (iif needed).
     //
-
     function updateIndex(){
         // Initally, there are no posts.
         var indexContent = '<div class="post"><h2>Something\'s missing...</h2><p class="noItems">No active posts - please check back again later.</p></div>';
