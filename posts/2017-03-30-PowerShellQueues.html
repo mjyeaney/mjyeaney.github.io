@@ -10,13 +10,20 @@
 
     <h3>Basic Architecture</h3>
 
+    <p>A high-level diagram of the concept is show below:</p> 
 
+    <p class="center"><img src="/media/powershell-queue-sample.png" alt="PowerShell Queue Design" /></p>
+
+    <p>Note that even though we are showing the senders and receivers 
+        as separate machines, this could just as easily be 2 processes on the same physical (or virtual) machine. This is 
+        one nice aspect of designing solutions with this pattern - we can easily transition to multi-machine deployments later 
+        as requirements change.</p>
 
     <h3>Why PowerShell?</h3>
 
-    <p>Well, why not? In all seriousness, any language can take advantage of the techniques shown here, 
-        even if you're just using the <a href="https://docs.microsoft.com/en-us/rest/api/" title="Azure REST API">Azure Storage REST API</a> directly. The original project I was working on 
-        already involved PowerShell scripts - your applications may have different requirements. Use what works for you!</p>
+    <p>While this example utilizes PowerShell, any language can take advantage of the techniques shown here -  
+        even those using the <a href="https://docs.microsoft.com/en-us/rest/api/" title="Azure REST API">Azure Storage REST API</a> directly. 
+        The original project I was working on already involved PowerShell scripts - your applications may have different requirements. Use what works for you!</p>
 
     <h3>Prerequisites</h3>
 
@@ -26,12 +33,12 @@
 
     <h3>The Code</h3>
 
-    <p>The underlying code is (un-)surprisingly very simple: a client application sends messages to a queue endpoint, 
-        while one or more receivers (or "listeners") read those messages from the queue and take action.</p>
+    <p>The underlying code has two distinct parts: a client application that sends messages to a storage queue endpoint, 
+        and one or more receivers reading those messages from the queue and taking action (in this case, just printing a message).</p>
 
     <p>The sender code (shown below) is fairly straightforward, sending some arbitrary messages in a loop. In this case, 
-        we are just sending a simple test string with a DateTime value appended on to the end - just enough to see the different 
-        messages</p>
+        we are just sending a simple test string with a DateTime value appended to the end - just enough to see the different 
+        messages as the are received.</p>
     </p>
 
     <pre>
@@ -98,10 +105,10 @@ for ($i = 0; $i -lt 25; $i++){
 LogMsg "Message send complete!"
     </pre>
 
-    <p>On the receiving end, we see a very similar pattern - run in a tight loop while reading messages from the queue, or 
-        optionally sleeping for a bit if there are no messages available. However, notice in this case we have a simple exponential 
+    <p>On the receiving end, we see a very similar pattern: a while-loop that reads messages from the queue, or 
+        optionally sleeps for a bit if there are no messages available. However, notice in this case we have a simple exponential 
         backoff built in to progressively sleep longer intervals when no messages are available. This avoids endless polling of the queue, 
-        and keeps the storage transactions to a minimum.</p>
+        and keeps the storage transactions to a minimum (note with Azure storage, you are charged for transactions).</p>
 
     <pre>
 <#
@@ -175,7 +182,18 @@ while ($true){
     </pre>
 
     <h3>Putting it together</h3>
+
+    <p>The screen capture below shows an example execution of these two scripts side-by-side. Notice we 
+        can see the receiver (on the right) pulling the messages off the queue and displaying them. Additionally, 
+        we can see the sleep intervals backing off when there are no more messages - this is the effect of the 
+        back-off code in the receiver sample above.</p>
     
-    <p>Local &lt;--&gt; Azure VM Example</p>
+    <p class="center"><img src="/media/powershell-queue-sample-2.png" alt="PowerShell Queue Design" /></p>
+
+    <p>Leveraging queues for communication between disconnected parts of your application workflow is a powerful 
+        technique, and one that can be applied on the same machine or across multiple machines. Note however that in this 
+        example the messages are "one-way"; that is, we can only send a message to a receiver, but we can't get a direct 
+        response. In a later post, we'll discuss ways to get responses back to the sender, and look at some ways we can leverage 
+        this technique to build scalable, resilient systems.</p>
 
 </div>
