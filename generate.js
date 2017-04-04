@@ -132,13 +132,13 @@
                 <script>
                 var disqus_config = function () {
                     this.page.url = '/${path}';
-                    this.page.identifier = '${pageIdentifier}';
+                    this.page.identifier = ${pageIdentifier};
                 };
                 </script>
             `;
             
             // Write out the chunk of content
-            fs.writeFileSync(path, header + content + diqusConfig + disqus + footer);
+            fs.writeFileSync(path, header + content + disqus + footer);
 
             // Create index data for teasers
             teaser = getSummaryInformation(content.toString());
