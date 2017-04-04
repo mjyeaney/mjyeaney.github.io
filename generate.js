@@ -132,7 +132,7 @@
                 <script>
                 var disqus_config = function () {
                     this.page.url = '/${path}';
-                    this.page.identifier = ${pageIdentifier};
+                    this.page.identifier = '${pageIdentifier}';
                 };
                 </script>
             `;
