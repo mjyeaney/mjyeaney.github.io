@@ -121,9 +121,7 @@ span.inlineCode { display: inline; font-family: Courier; padding: 0; }
     }
     #header .wrapper ul { margin-top: -2.2em; }
     #header .wrapper ul li { margin-right: .5em; }
-}
 
-@media (max-width: 790px) {
     #content .rightCol {
         float: none;
         width: auto;
@@ -135,6 +133,7 @@ span.inlineCode { display: inline; font-family: Courier; padding: 0; }
     #content div.mugShot { display: none; }
     #content p.banter { display: none; }
     #content p.social { border-top: none; border-bottom: none; }
+    #content .twitter-timeline { display: none!important; }
 }
 
 @media (max-width: 480px){
