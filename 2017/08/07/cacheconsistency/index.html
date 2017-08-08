@@ -23,12 +23,98 @@
         <div id="content">
             <div class="wrapper">
                 <div class="leftCol">
-<div class="post frontPage"><h2><a href="2017/08/07/cacheconsistency/" title="Read more">Cache Consistency: Avoiding Common Issues</a></h2><p>Leveraging a cache is an effective way to increase the performance of many systems, and can dramatically reduce the load on backend components as we are no longer repeatedly fetching the same data over and over. As a lack of caching is often considered a <a href="https://docs.microsoft.com/en-us/azure/architecture/antipatterns/no-caching/" title="No Caching Anti-Pattern">performance anti-pattern</a>, many systems tend to add in data caches once they have proved latency and/or performance is unacceptable - in other words, in can often be an afterthought.</p><div class="authorInfo">Michael Yeaney <span class="dateText">August 14, 2017</span></div></div><div class="post frontPage"><h2><a href="2017/03/30/powershellqueues/" title="Read more">Interacting with Azure Queues from PowerShell</a></h2><p>In this post, I want to show how you can communicate between 2 (or more) machines with Azure Storage Queues
-    using PowerShell. This type of communication naturally gives way to the <a href="https://docs.microsoft.com/en-us/azure/architecture/patterns/competing-consumers" title="Competing Consumer Pattern">competing consumer pattern</a>, which is found 
-    throughout many high-scale systems. This pattern is quite useful for spreading work items across a pool 
-    of available compute resources in order to optimize throughput and availability.</p><div class="authorInfo">Michael Yeaney <span class="dateText">March 30, 2017</span></div></div><div class="post frontPage"><h2><a href="2017/03/29/powershellfun/" title="Read more">PowerShell Fun: Recursive Folder Size</a></h2><p>While playing around with some PowerShell scripts today, I was looking for 
-        some fun (??) ways to get a view of how big a folder and all of its&apos; contents are. This is arguably 
-        pretty trivial, but we&apos;re just having fun, right? :-)</p><div class="authorInfo">Michael Yeaney <span class="dateText">March 29, 2017</span></div></div>                </div>
+<div class="post" data-tags="Distributed, Consistency" data-date="2017-08-14">
+
+    <h2 class="title">Cache Consistency: Avoiding Common Issues</h2>
+    <div class="authorInfo">Michael Yeaney <span class="dateText">August 14, 2017</span></div>
+
+    <p class="teaser">Leveraging a cache is an effective way to increase the performance of many systems, and can dramatically reduce the load on backend components as we are no longer repeatedly fetching the same data over and over. As a lack of caching is often considered a <a href="https://docs.microsoft.com/en-us/azure/architecture/antipatterns/no-caching/" title="No Caching Anti-Pattern">performance anti-pattern</a>, many systems tend to add in data caches once they have proved latency and/or performance is unacceptable - in other words, in can often be an afterthought.</p>
+
+    <p>However, one area that is commonly overlooked is how the consistency model of your cache can completely change the overall behavior of the application as a whole. Before we dig into these impacts, let's back up and consider an basic application *without* caching.</p>
+
+    <p>In this example, lets consider a canonical web application consisting of a sing-page javascript client which calls a REST API tier that is making calls into a database:</p>
+
+    <p class="center"><img src="/media/TODO.png" alt="TODO - Application Block Diagram" /></p>
+
+    <p>The REST API exposes two simple operations, namely <span class="inlineCode">GetSomeValue(key)</span> and <span class="inlineCode">UpdateValue(key, newValue)</span>. In our simple implementation, the REST API proxies these calls directly through to the underlying SQL database, invoking <span class="inlineCode">SELECT...FROM...WHERE</span> for the <span class="inlineCode">GetSomeValue(key)</span> call, and a simple <span class="inlineCode">UPDATE...SET...WHERE</span> for the <span class="inlineCode">UpdateValue(key, newValue)</span> call. Things seem to work well; that is, so long as there is no concurrent writes to the same key.</p>
+
+    <h3>Failure Modes</h3>
+
+    <p>So what can go wrong? In the naive example above, we have essentially deployed a <em>Last Write Wins</em> concurrency model. In this model, whatever statment runs last against the datastore will overwrite any previous values and change the value. The issue here is that the last statement run by the database does not necessarily correspond to the last update sent by a client. Thread scheduling, garbage collection, event network latency/retires can cause the "last" request to be processed first, as show below:</p> 
+
+    <p class="center"><img src="/media/TODO.png" alt="TODO - Causality Diagram" /></p>
+
+    <p>The end result is overwritten data, and unhappy users.</p>
+
+    <h3>Fixing the problem</h3>
+
+    <p>So how can we address this issue? There are a number of ways, but ultimately most approaches rely on some sort of CAS (compare-and-swap) operation to make sure the value being written hasn't been changed from what was originally seen. This ends up changing our REST API signature for updates to <span class="inlineCode">UpdateValue(key, version, newValue)</span>. This allows us to specify not only the new value to set, but also to only set this new value if and only if the version has not changed.</p>
+
+    <p>This type of modification has shifted us from Last-Write-Wins to <em>First-Write-Wins</em>. This essentially means the first request the database can process that matches the CAS condition is the only update applied. This is typically the exact behavior that most systems are after, and guarantees data safety in the face of concurrent updates.</p>
+
+    <h3>Making it Faster</h3>
+
+    <p>At this point, we may determine that there is no reason to make a network trip the database for every call to <span class="inlineCode">GetSomeValue(key)</span>, especially if the value hasn't changed. At this point, we decide to introduce a cache and use the following basic psuedocode to keep it updated:</p>
+
+    <pre>
+GetSomeValue(key):
+    if (cache.Contains(key)):
+        return cache[key]
+    else 
+        value = getValueFromDataBase(key)
+        cache.SetValue(key, value)
+        return value
+    end
+
+UpdateValue(key, version, newValue):
+    if (updateValueInDatabase(key, version, newValue):
+        cache.SetValue(key, newValue)
+    end
+    </pre>
+
+    <p>This is a variation of the <a href="https://docs.microsoft.com/en-us/azure/architecture/patterns/cache-aside" title="Cache Aside Pattern">cache-aside pattern</a>, and essentially only updates the cache store if and only if the underlying datastore was udpated.</p>
+
+    <p>So, performance is now where we need it, and writes are fully protected by the underlying concurrency checks in the database. All is well, right?</p>
+
+    <h3>Not So Fast</h3>
+
+    <p>The issue with the pattern above is that the caching code is written to operate in *Last-Write-Wins* mode, meaning that the last write to the cache will blindly overwrite the previous value. The naive assumption is that the last operation successfully run by the database is the last on issued to the cache - but that simply isn't true on the timescales that computers operate, as shown below:</p>
+
+    <p class="center"><img src="/media/TODO.png" alt="TODO - Causality Diagram" /></p>
+
+    <p>From our discussion above, remember that thread scheduling/pausing, garbage collection, network delays, etc., call all make operation run out-of-order from wall time. This new failure mode will exhibit the same consistency issues of the original application design, yet the underlying databse will be correct (and also NOT match the cache).</p>
+
+    <h3>What to do?</h3>
+
+    <p>At this point, some teams choose to avoid the caching system (sacrificing performance), and attempt to resort to locking techniques that don't work across multiple machines (and please don't resort to distributed locking). Instead, the correct solution is to implement the same CAS-style operations on your cache that your datastore is leveraging. The exact semantics of this vary between vendors, but the basic flow is something like this:</p>
+
+    <pre>
+UpdateCacheValue(key, version, newValue):
+   if (cache.Contains(key)):
+        cachedValue = cache.GetValue(key)
+        if (cachedValue.Version = version):
+            cache.SetValue(key, newValue)
+        end
+   end
+    </pre>
+
+    <p>Again, the exact syntax of this pattern will vary by vendor (e.g., Redis uses the <span class="inlineCode">WATCH</span> command to enable CAS semantics). However, we now retained the desired consistency pattern in our application (namely, *First-Write-Wins*, giving us data safety in the face of concurrent updates.</p>
+
+    <h3>Wrapping Up</h3>
+
+    <p>As with any pattern, how and when you use will always depend on your exact use case. However, it is important to remember the data consistency model of an applictaion isn't limited to the scope of a single data store - it is a composite behavior exhibited by the application, and as we've shown above can be influenced by components that have nothing to do with your primary data store.</p>
+
+</div>
+<div id="disqus_thread"></div>
+<script>
+(function() {
+var d = document, s = d.createElement('script');
+s.src = 'https://mjyeaney-web.disqus.com/embed.js';
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>                </div>
 
                 <div class="rightCol">
                     <div class="mugShot">

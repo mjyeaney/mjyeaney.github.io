@@ -18,7 +18,7 @@ blockquote {
 }
 
 .wrapper { 
-    max-width: 1300px; 
+    max-width: 1400px; 
     margin: 0px auto; 
 }
 #header { 
@@ -121,7 +121,7 @@ span.inlineCode { display: inline; font-family: Courier; padding: 0; }
     }
     #header .wrapper ul { margin-top: -2.2em; }
     #header .wrapper ul li { margin-right: .5em; }
-
+    .wrapper { max-width: 1500px; }
     #content .rightCol {
         float: none;
         width: auto;
