@@ -3,29 +3,33 @@
     <h2 class="title">Cache Consistency: Avoiding Common Issues</h2>
     <div class="authorInfo">Michael Yeaney <span class="dateText">August 14, 2017</span></div>
 
-    <p class="teaser">Leveraging a cache is an effective way to increase the performance of many systems, and can dramatically reduce the load on backend components as we are no longer repeatedly fetching the same data over and over. As a lack of caching is often considered a <a href="https://docs.microsoft.com/en-us/azure/architecture/antipatterns/no-caching/" title="No Caching Anti-Pattern">performance anti-pattern</a>, many systems tend to add in data caches once they have proved latency and/or performance is unacceptable - in other words, in can often be an afterthought.</p>
+    <p class="teaser">Leveraging a cache is an effective way to increase the performance of many applications, and can dramatically reduce the load on backend components as we are no longer repeatedly fetching the same data over and over. Since a lack of caching is often considered a <a href="https://docs.microsoft.com/en-us/azure/architecture/antipatterns/no-caching/" title="No Caching Anti-Pattern">performance anti-pattern</a>, many systems tend to add in caches once they have exhibited latency and/or performance that is unacceptable - in other words, added caching is often an afterthought.</p>
 
-    <p>However, one area that is commonly overlooked is how the consistency model of your cache can completely change the overall behavior of the application as a whole. Before we dig into these impacts, let's back up and consider an basic application *without* caching.</p>
+    <p>Unfortunately, one area that is commonly overlooked is the impacts of your cache consistency model on the overall behavior of the application. Before we dig into these impacts, let's back up and consider an basic application *without* caching.</p>
 
-    <p>In this example, lets consider a canonical web application consisting of a sing-page javascript client which calls a REST API tier that is making calls into a database:</p>
+    <p>In this example, we'll assume a canonical web application consisting of a sing-page javascript client which calls a REST API tier that is making calls into a database:</p>
 
-    <p class="center"><img src="/media/TODO.png" alt="TODO - Application Block Diagram" /></p>
+    <p class="center"><img src="/media/CacheConsistency1.png" alt="Application Block Diagram" /></p>
 
-    <p>The REST API exposes two simple operations, namely <span class="inlineCode">GetSomeValue(key)</span> and <span class="inlineCode">UpdateValue(key, newValue)</span>. In our simple implementation, the REST API proxies these calls directly through to the underlying SQL database, invoking <span class="inlineCode">SELECT...FROM...WHERE</span> for the <span class="inlineCode">GetSomeValue(key)</span> call, and a simple <span class="inlineCode">UPDATE...SET...WHERE</span> for the <span class="inlineCode">UpdateValue(key, newValue)</span> call. Things seem to work well; that is, so long as there is no concurrent writes to the same key.</p>
+    <p>The REST API exposes two simple operations, namely <span class="inlineCode">GetSomeValue(key)</span> and <span class="inlineCode">UpdateValue(key, newValue)</span>. In our simple implementation, the REST API proxies these calls (after validation, etc.) directly through to the underlying SQL database, invoking <span class="inlineCode">SELECT...FROM...WHERE</span> for the <span class="inlineCode">GetSomeValue(key)</span> call, and a simple <span class="inlineCode">UPDATE...SET...WHERE</span> for the <span class="inlineCode">UpdateValue(key, newValue)</span> call. Things seem to work well; that is, so long as there is no concurrent writes to the same key.</p>
 
     <h3>Failure Modes</h3>
 
-    <p>So what can go wrong? In the naive example above, we have essentially deployed a <em>Last Write Wins</em> concurrency model. In this model, whatever statment runs last against the datastore will overwrite any previous values and change the value. The issue here is that the last statement run by the database does not necessarily correspond to the last update sent by a client. Thread scheduling, garbage collection, event network latency/retires can cause the "last" request to be processed first, as show below:</p> 
+    <p>So what can go wrong? In the naive example above, we have essentially deployed a <em>Last Write Wins</em> concurrency model. In this model, whatever statment runs last against the database will overwrite any previous values. The issue here is that the last statement run by the database does not necessarily correspond to the last update sent by a client. Thread scheduling, garbage collection, event network latency/retires can cause the "last" request to be processed first, as show below:</p> 
 
-    <p class="center"><img src="/media/TODO.png" alt="TODO - Causality Diagram" /></p>
+    <p class="center"><img src="/media/CacheConsistencyExample1.png" alt="Last Write Wins Causality Diagram" /></p>
 
-    <p>The end result is overwritten data, and unhappy users.</p>
+    <p>These effects are event more noticable when dealing with multiple machines (for example, a cluster of REST API servers), since there is no coordination between machines on thread scheduling, gardbage collection intervals, etc.  Whatever the root cause, the end result is overwritten/vanishing updates, and unhappy users.</p>
 
     <h3>Fixing the problem</h3>
 
-    <p>So how can we address this issue? There are a number of ways, but ultimately most approaches rely on some sort of CAS (compare-and-swap) operation to make sure the value being written hasn't been changed from what was originally seen. This ends up changing our REST API signature for updates to <span class="inlineCode">UpdateValue(key, version, newValue)</span>. This allows us to specify not only the new value to set, but also to only set this new value if and only if the version has not changed.</p>
+    <p>So how can we address this issue? There are a number of options, most relying on some sort of CAS (compare-and-swap) operation to make sure the value being overwritten hasn't been changed from what was originally seen. This ends up changing our REST API signature for updates to <span class="inlineCode">UpdateValue(key, version, newValue)</span>. This allows us to specify not only the new value to set, but also to only set this new value if and only if the version has not changed.</p>
 
-    <p>This type of modification has shifted us from Last-Write-Wins to <em>First-Write-Wins</em>. This essentially means the first request the database can process that matches the CAS condition is the only update applied. This is typically the exact behavior that most systems are after, and guarantees data safety in the face of concurrent updates.</p>
+    <p>This type of modification has shifted us from Last-Write-Wins to <em>First-Write-Wins</em>. This essentially means the first request the database can process that matches the CAS condition is the only update applied, as shown below:</p>
+    
+    <p class="center"><img src="/media/CacheConsistencyExample2.png" alt="First Write Wins Causality Diagram" /></p>
+    
+    <p>This is typically the exact behavior that most systems are after, and guarantees data safety in the face of concurrent updates.</p>
 
     <h3>Making it Faster</h3>
 
@@ -53,15 +57,15 @@ UpdateValue(key, version, newValue):
 
     <h3>Not So Fast</h3>
 
-    <p>The issue with the pattern above is that the caching code is written to operate in *Last-Write-Wins* mode, meaning that the last write to the cache will blindly overwrite the previous value. The naive assumption is that the last operation successfully run by the database is the last on issued to the cache - but that simply isn't true on the timescales that computers operate, as shown below:</p>
+    <p>The issue with the caching pattern above is that the caching code is written to operate in *Last-Write-Wins* mode, meaning that the last write to the cache will blindly overwrite the previous value. The naive assumption is that the last operation successfully run by the database is the last on issued to the cache - but that simply isn't true on the timescales that computers operate, as shown below:</p>
 
     <p class="center"><img src="/media/TODO.png" alt="TODO - Causality Diagram" /></p>
 
-    <p>From our discussion above, remember that thread scheduling/pausing, garbage collection, network delays, etc., call all make operation run out-of-order from wall time. This new failure mode will exhibit the same consistency issues of the original application design, yet the underlying databse will be correct (and also NOT match the cache).</p>
+    <p>From our discussion above, remember that thread scheduling/pausing, garbage collection, network delays, etc., call all make operation run out-of-order from wall time. This new failure mode will exhibit the same consistency errors of the original application design, yet the underlying databse will be correct (and also NOT match the cache).</p>
 
     <h3>What to do?</h3>
 
-    <p>At this point, some teams choose to avoid the caching system (sacrificing performance), and attempt to resort to locking techniques that don't work across multiple machines (and please don't resort to distributed locking). Instead, the correct solution is to implement the same CAS-style operations on your cache that your datastore is leveraging. The exact semantics of this vary between vendors, but the basic flow is something like this:</p>
+    <p>At this point, some teams choose to avoid the caching system altogether (sacrificing performance), or attempt to resort to locking techniques that don't work across multiple machines (or worse, attempt distributed locking). Instead, the correct solution is to implement the same CAS-style operations on your cache that your datastore is leveraging. The exact semantics of this vary between vendors, but the basic flow is something like this:</p>
 
     <pre>
 UpdateCacheValue(key, version, newValue):
@@ -73,10 +77,10 @@ UpdateCacheValue(key, version, newValue):
    end
     </pre>
 
-    <p>Again, the exact syntax of this pattern will vary by vendor (e.g., Redis uses the <span class="inlineCode">WATCH</span> command to enable CAS semantics). However, we now retained the desired consistency pattern in our application (namely, *First-Write-Wins*, giving us data safety in the face of concurrent updates.</p>
+    <p>The exact syntax of this pattern will vary by the caching platform (e.g., Redis uses the <span class="inlineCode">WATCH</span> command to enable CAS semantics). Whatever technique is used, this enables us to maintain the desired consistency behavior in our application (namely, *First-Write-Wins*, giving us data safety in the face of concurrent updates.</p>
 
     <h3>Wrapping Up</h3>
 
-    <p>As with any pattern, how and when you use will always depend on your exact use case. However, it is important to remember the data consistency model of an applictaion isn't limited to the scope of a single data store - it is a composite behavior exhibited by the application, and as we've shown above can be influenced by components that have nothing to do with your primary data store.</p>
+    <p>As with any pattern, how and when you use will always depend on your exact use case. For example, some applications can tolerate (or even require) and eventual consistency model where intermediate inconsistencies are acceptable. Regardless, it is important to remember the data consistency model of an applictaion isn't limited to the scope of a single data store - it is a composite behavior exhibited by the application, and as we've shown above can be influenced by components that have nothing to do with your primary data store.</p>
 
 </div>

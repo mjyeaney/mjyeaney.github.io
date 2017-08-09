@@ -18,7 +18,7 @@ blockquote {
 }
 
 .wrapper { 
-    max-width: 1400px; 
+    max-width: 1350px; 
     margin: 0px auto; 
 }
 #header { 
@@ -37,6 +37,7 @@ blockquote {
     text-shadow: 0px 0px 10px #ccc;
     line-height: 3em;
     padding: 2em 0 0 .25em;
+    cursor: pointer;
 }
 
 #header a.hamburger {
@@ -92,6 +93,7 @@ pre {
 }
 
 span.inlineCode { display: inline; font-family: Courier; padding: 0; }
+p.center img { cursor: pointer; }
 
 @media (max-height: 900px){
     body { font-size: 15px; }
