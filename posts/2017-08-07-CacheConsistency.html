@@ -11,21 +11,21 @@
 
     <p class="center"><img src="/media/CacheConsistency1.png" alt="Application Block Diagram" /></p>
 
-    <p>The REST API exposes two simple operations, namely <span class="inlineCode">GetSomeValue(key)</span> and <span class="inlineCode">UpdateValue(key, newValue)</span>. In our simple implementation, the REST API proxies these calls (after validation, etc.) directly through to the underlying SQL database, invoking <span class="inlineCode">SELECT...FROM...WHERE</span> for the <span class="inlineCode">GetSomeValue(key)</span> call, and a simple <span class="inlineCode">UPDATE...SET...WHERE</span> for the <span class="inlineCode">UpdateValue(key, newValue)</span> call. Things seem to work well; that is, so long as there is no concurrent writes to the same key.</p>
+    <p>The REST API exposes two simple operations, namely <span class="inlineCode">GetSomeValue(key)</span> and <span class="inlineCode">UpdateValue(key, newValue)</span>. In our simple implementation, the REST API proxies these calls (after validation, etc.) directly through to the underlying SQL database, invoking <span class="inlineCode">SELECT...FROM...WHERE</span> for the <span class="inlineCode">GetSomeValue(key)</span> call, and a simple <span class="inlineCode">UPDATE...SET...WHERE</span> for the <span class="inlineCode">UpdateValue(key, newValue)</span> call. Things seem to work well; that is, so long as there are no concurrent writes to the same key.</p>
 
     <h3>Failure Modes</h3>
 
-    <p>So what can go wrong? In the naïve example above, we have essentially deployed a <em>Last Write Wins</em> concurrency model. In this model, whatever statment runs last against the database will overwrite any previous values. The issue here is that the last statement run by the database does not necessarily correspond to the last update sent by a client. Thread scheduling, garbage collection, event network latency/retires can cause the "last" request to be processed first, as show below:</p> 
+    <p>So what can go wrong? In the naïve example above, we have essentially implemented a <em>Last Write Wins</em> concurrency model. In this model, whatever statment runs "last" (relative to wall-time) against the database will overwrite any previous values. The issue here is that the last statement run by the database does not necessarily correspond to the last update sent by a client. Thread scheduling, garbage collection, event network latency/retires can cause the "last" request to be processed first, as show below:</p> 
 
     <p class="center"><img src="/media/CacheConsistencyExample1.png" alt="Last Write Wins Causality Diagram" /></p>
 
-    <p>These effects are event more noticable when dealing with multiple machines (for example, a cluster of REST API servers), since there is no coordination between machines on thread scheduling, garbage collection intervals, etc.  Whatever the root cause, the end result is overwritten/vanishing updates, and unhappy users.</p>
+    <p>These effects are even more noticable when dealing with multiple machines (for example, a cluster of REST API servers), since there is no coordination between machines on thread scheduling, garbage collection intervals, etc.  Whatever the root cause, the end result is overwritten/vanishing updates, and unhappy users.</p>
 
     <h3>Fixing the problem</h3>
 
-    <p>So how can we address this issue? There are a number of options, most relying on some sort of CAS (<a href="https://en.wikipedia.org/wiki/Compare-and-swap" title="Compare and Swap Wikipedia Link">compare-and-swap</a>) operation to make sure the value being overwritten hasn't been changed from what was originally seen. This is typically done by comparing a "version" field, and if it matches (or is optionally newer), the update can proceed and the version is updated. As a result, our REST API signature for updates will now need updated to something like <span class="inlineCode">UpdateValue(key, version, newValue)</span>. This allows us to specify not only the new value to set, but also to only set this new value if and only if the version has not changed.</p>
+    <p>So how can we address this issue? There are a number of options, most relying on some sort of CAS (<a href="https://en.wikipedia.org/wiki/Compare-and-swap" title="Compare and Swap Wikipedia Link">compare-and-swap</a>) operation to make sure the value being overwritten hasn't been changed from what was originally seen (or is at least "newer"). This is typically done by comparing a "version" field, and if it matches (or is optionally newer), the update can proceed and the version is updated. To accomodate this change, our REST API signature for updates will now need updated to something like <span class="inlineCode">UpdateValue(key, version, newValue)</span>. This allows us to specify not only the new value to set, but also to only set this new value if and only if the version has not changed.</p>
 
-    <p>This type of modification has shifted us from Last-Write-Wins to <em>First-Write-Wins</em>, meaning the first request the database can process that matches the CAS condition is the only update applied, as shown below:</p>
+    <p>This type of modification has shifted us from Last-Write-Wins to <em>First-Write-Wins</em>, meaning the first request that the database successfully executes is the only update applied, as shown below:</p>
     
     <p class="center"><img src="/media/CacheConsistencyExample2.png" alt="First Write Wins Causality Diagram" /></p>
     
@@ -33,7 +33,7 @@
 
     <h3>Making it Faster</h3>
 
-    <p>At this point, we may determine that there is no reason to make a network trip the database for every call to <span class="inlineCode">GetSomeValue(key)</span>, especially if the value hasn't changed. At this point, we decide to introduce a cache and use the following basic psuedocode to keep it updated:</p>
+    <p>At this point, we may determine that there is no reason to make a network trip the database for every call to <span class="inlineCode">GetSomeValue(key)</span>, especially if the value hasn't changed. So we decide to introduce a cache and use the following basic psuedocode to keep it updated:</p>
 
     <pre>
 GetSomeValue(key):
@@ -53,15 +53,15 @@ UpdateValue(key, version, newValue):
 
     <p>This is a variation of the <a href="https://docs.microsoft.com/en-us/azure/architecture/patterns/cache-aside" title="Cache Aside Pattern">cache-aside pattern</a>, and essentially only updates the cache store if and only if the underlying datastore was udpated.</p>
 
-    <p>So, performance is now improved, and writes are fully protected by the underlying concurrency checks in the database. All is well, right?</p>
+    <p>Performance is now improved, and writes are fully protected by the underlying concurrency checks in the database. All is well, right?</p>
 
     <h3>Not So Fast</h3>
 
-    <p>The issue with the caching pattern above is that the code is written to operate in *Last-Write-Wins* manner, meaning that the last write to the cache will blindly overwrite the previous value. The naive assumption is that the last operation successfully run by the database is the last on issued to the cache - but that simply isn't true on the timescales that computers operate, as shown below:</p>
+    <p>The issue with the caching pattern above is that the code is written to operate in a *Last-Write-Wins* manner, meaning that the last write to the cache will blindly overwrite the previous value. The naive assumption is that the last operation successfully run by the database is the last on issued to the cache - but that simply isn't true on the timescales that computers operate, as shown below:</p>
 
     <p class="center"><img src="/media/CacheConsistencyExample3.png" alt="Cache Overwrite Causality Diagram" /></p>
 
-    <p>From our discussion above, remember that thread scheduling/pausing, garbage collection, network delays, etc., call all make operation run out-of-order from wall time. This new failure mode will exhibit the same consistency errors of the original application design, yet the underlying databse will be correct (and also NOT match the cache).</p>
+    <p>From our discussion above, remember that thread scheduling/pausing, garbage collection, network delays, machines crashes, etc., call all make operation run out-of-order from wall time. This new failure mode will exhibit the same consistency errors of the original application design, yet the underlying databse will be correct (and also NOT match the cache).</p>
 
     <h3>What to do?</h3>
 
@@ -71,12 +71,14 @@ UpdateValue(key, version, newValue):
 UpdateCacheValue(key, version, newValue):
    if (cache.Contains(key)):
         cachedValue = cache.GetValue(key)
-        if (cachedValue.Version >= version):
+        if (cachedValue.Version <= version):
             cache.SetValue(key, newValue)
         end
    end
     </pre>
 
+    <p>Notice in this example code, we're no longer using a strict equality comparison when checking the version. Instead, we are making sure that the version provided by the client is equal to or "newer" (assuming version counters are monotonically increasing). This helps avoid the case of all future updates being blocked if a previous client crashes before writing a new version to cache (meaning no further matches are possible). We could instead choose to flush cache entries that do not match a provided version/threshold; however this must be done with care in order to avoid <a href="https://en.wikipedia.org/wiki/Cache_stampede" title="Cache Stampede Wikipedia Link">cache stampede</a> effects under load.</p>.
+    
     <p>The exact syntax of this pattern will vary by the caching platform (e.g., Redis uses the <span class="inlineCode">WATCH</span> command to enable CAS semantics). Whatever technique is used, this enables us to maintain the desired consistency behavior in our application (namely, *First-Write-Wins*, giving us data safety in the face of concurrent updates:</p>
 
     <p class="center"><img src="/media/CacheConsistencyExample4.png" alt="Cache Version Check Causality Diagram" /></p>
