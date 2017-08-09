@@ -48,9 +48,9 @@
 
     <h3>Fixing the problem</h3>
 
-    <p>So how can we address this issue? There are a number of options, most relying on some sort of CAS (compare-and-swap) operation to make sure the value being overwritten hasn't been changed from what was originally seen. This ends up changing our REST API signature for updates to <span class="inlineCode">UpdateValue(key, version, newValue)</span>. This allows us to specify not only the new value to set, but also to only set this new value if and only if the version has not changed.</p>
+    <p>So how can we address this issue? There are a number of options, most relying on some sort of CAS (<a href="https://en.wikipedia.org/wiki/Compare-and-swap" title="Compare and Swap Wikipedia Link">compare-and-swap</a>) operation to make sure the value being overwritten hasn't been changed from what was originally seen. This is typically done by comparing a "version" field, and if it matches (or is optionally newer), the update can proceed and the version is updated. As a result, our REST API signature for updates will now need updated to something like <span class="inlineCode">UpdateValue(key, version, newValue)</span>. This allows us to specify not only the new value to set, but also to only set this new value if and only if the version has not changed.</p>
 
-    <p>This type of modification has shifted us from Last-Write-Wins to <em>First-Write-Wins</em>. This essentially means the first request the database can process that matches the CAS condition is the only update applied, as shown below:</p>
+    <p>This type of modification has shifted us from Last-Write-Wins to <em>First-Write-Wins</em>, meaning the first request the database can process that matches the CAS condition is the only update applied, as shown below:</p>
     
     <p class="center"><img src="/media/CacheConsistencyExample2.png" alt="First Write Wins Causality Diagram" /></p>
     
@@ -78,13 +78,13 @@ UpdateValue(key, version, newValue):
 
     <p>This is a variation of the <a href="https://docs.microsoft.com/en-us/azure/architecture/patterns/cache-aside" title="Cache Aside Pattern">cache-aside pattern</a>, and essentially only updates the cache store if and only if the underlying datastore was udpated.</p>
 
-    <p>So, performance is now where we need it, and writes are fully protected by the underlying concurrency checks in the database. All is well, right?</p>
+    <p>So, performance is now improved, and writes are fully protected by the underlying concurrency checks in the database. All is well, right?</p>
 
     <h3>Not So Fast</h3>
 
-    <p>The issue with the caching pattern above is that the caching code is written to operate in *Last-Write-Wins* mode, meaning that the last write to the cache will blindly overwrite the previous value. The naive assumption is that the last operation successfully run by the database is the last on issued to the cache - but that simply isn't true on the timescales that computers operate, as shown below:</p>
+    <p>The issue with the caching pattern above is that the code is written to operate in *Last-Write-Wins* manner, meaning that the last write to the cache will blindly overwrite the previous value. The naive assumption is that the last operation successfully run by the database is the last on issued to the cache - but that simply isn't true on the timescales that computers operate, as shown below:</p>
 
-    <p class="center"><img src="/media/TODO.png" alt="TODO - Causality Diagram" /></p>
+    <p class="center"><img src="/media/CacheConsistencyExample3.png" alt="Cache Overwrite Causality Diagram" /></p>
 
     <p>From our discussion above, remember that thread scheduling/pausing, garbage collection, network delays, etc., call all make operation run out-of-order from wall time. This new failure mode will exhibit the same consistency errors of the original application design, yet the underlying databse will be correct (and also NOT match the cache).</p>
 
@@ -96,13 +96,15 @@ UpdateValue(key, version, newValue):
 UpdateCacheValue(key, version, newValue):
    if (cache.Contains(key)):
         cachedValue = cache.GetValue(key)
-        if (cachedValue.Version = version):
+        if (cachedValue.Version >= version):
             cache.SetValue(key, newValue)
         end
    end
     </pre>
 
-    <p>The exact syntax of this pattern will vary by the caching platform (e.g., Redis uses the <span class="inlineCode">WATCH</span> command to enable CAS semantics). Whatever technique is used, this enables us to maintain the desired consistency behavior in our application (namely, *First-Write-Wins*, giving us data safety in the face of concurrent updates.</p>
+    <p>The exact syntax of this pattern will vary by the caching platform (e.g., Redis uses the <span class="inlineCode">WATCH</span> command to enable CAS semantics). Whatever technique is used, this enables us to maintain the desired consistency behavior in our application (namely, *First-Write-Wins*, giving us data safety in the face of concurrent updates:</p>
+
+    <p class="center"><img src="/media/CacheConsistencyExample4.png" alt="Cache Version Check Causality Diagram" /></p>
 
     <h3>Wrapping Up</h3>
 
