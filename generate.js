@@ -136,12 +136,13 @@
                 };
                 </script>
             `;
-            
-            // Write out the chunk of content
-            fs.writeFileSync(path, header + content + disqus + footer);
 
             // Create index data for teasers
             teaser = getSummaryInformation(content.toString());
+            
+            // Write out the chunk of content
+            var thisHeader = header.toString().replace('${title}', teaser.title + " - ");
+            fs.writeFileSync(path, thisHeader + content + disqus + footer);
 
             // This may not be needed anymore - keep an eye on it.
             teaser.link = path.replace('\\', '/').replace('index.html', '');
@@ -183,7 +184,8 @@
         }
 
         // write out index page containing all teasers
-        fs.writeFileSync('./index.html', header + indexContent + footer);
+        var indexHeader = header.toString().replace('${title}', '');
+        fs.writeFileSync('./index.html', indexHeader + indexContent + footer);
         logMessage('Done!');
     };
    
