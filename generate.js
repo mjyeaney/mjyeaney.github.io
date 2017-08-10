@@ -96,28 +96,28 @@
             dateText += path;
             if (!fs.existsSync(path)){
                 logMessage('Creating ' + path + '...');
-                fs.mkdir(path);
+                fs.mkdirSync(path);
             }
             
             path += '/' + parts.shift();
             dateText += path;
             if (!fs.existsSync(path)){
                 logMessage('Creating ' + path + '...');
-                fs.mkdir(path);
+                fs.mkdirSync(path);
             }
             
             path += '/' + parts.shift();
             dateText += path;
             if (!fs.existsSync(path)){
                 logMessage('Creating ' + path + '...');
-                fs.mkdir(path);
+                fs.mkdirSync(path);
             }
 
             // Now, create a directory with the post name
             path += '/' + parts.join('-');
             if (!fs.existsSync(path)){
                 logMessage('Creating ' + path + '...');
-                fs.mkdir(path);
+                fs.mkdirSync(path);
             }
 
             // Read the post content, wrap with header/footer, and write out
