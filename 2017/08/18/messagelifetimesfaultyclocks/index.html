@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, user-scalable=no">
+        <title>Message Lifetimes and Faulty Clocks - Michael Yeaney - Blog</title>
+        <link href="//fonts.googleapis.com/css?family=Open+Sans:400,300,600" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" type="text/css" href="/core.css?ver=1.29" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?ver=1.29" />
+    </head>
+    <body>
+        <div id="header">
+            <div class="wrapper">
+                <h3>{{michael yeaney :: blog}}</h3>
+                <a class="hamburger" title="Menu"></a>
+                <ul>
+                    <li><a href="/" title="Home">home</a></li>
+                    <li><a href="/about/" title="About">about</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="content">
+            <div class="wrapper">
+                <div class="leftCol">
+<div class="post" data-tags="Distributed, Messaging, Clocks" data-date="2017-08-18">
+    
+    <h2 class="title">Message Lifetimes and Faulty Clocks</h2>
+    <div class="authorInfo">Michael Yeaney <span class="dateText">August 18, 2017</span></div>
+
+    <p class="teaser">Sending messages between two computers is commonplace, especially in the context of systems integration and distributed computing. One common requirement that arises is to not process messages that are older than some threshold. However, this seemingly simple requirement relies on a level of time synchronization that can be difficult to achieve.</p>
+
+    <p>In this post, we'll explore the scenario of expireing messages, and the problems associated with accurate timekeeping between mutliple computers. Next, we'll demonstrate a few possible failure cases caused by clock drift, and present a few different options for working around these problems.</p>
+
+    <h3>Sample Use Case</h3>
+
+    <p>To begin, lets assume to computers (labeled C<sub>1</sub> and C<sub>2</sub> below) connected together on a network. C<sub>1</sub> will send a simple message to C<sub>2</sub> asynchronously (not waiting for a response) with one simple requirement: If C<sub>2</sub> cannot process the message before it is 5 minutes old, it should ignore it.</p>
+
+    <p class="center"><img src="/media/MessageLifetimes1.png" alt="Basic Message Exchange" /></p>
+
+    <p>If we consider what such a message may look like, we can imagine a set of fields similar to the following:</p>
+
+    <pre>
+class ExampleMessage
+{
+    DateTime TimeSent { get; set; }
+    byte[] Data { get; set; }
+}
+    </pre>
+
+    <p>Here, we can see this simple message contains an opaque array of data (the <span class="inlineCode">byte[]</span> data), and a timestamp indicating when the message was sent. We can also imagine the receiver logic to correctly process this message, based off of our business requirement to not process a message that is older than 5 mintes:</p>
+
+    <pre>
+// ...
+if ((DateTime.Now - nextMsg.TimeSent) > TimeSpan.FromMinues(5)){
+    // Ignore message - it's expired
+} else {
+    // Read + process message
+}
+// ...
+    </pre>
+
+    <p>Seems fairly straightforward, but if we take a step back we can see that this simple design has a built-in requirement that <em>both machines have nearly perfrect time synchronization</em>. Simple, right? Just setup NTP and move on. Or maybe not.</p>
+
+    <h3>A Question of Time</h3>
+
+    <p>Accurate clocks are critical to determining the order of operations and establishing proper relationship between events. Log file entries, database tables, and emails are all marked with (and ordered by) timestamps, so ensuring reasonable accuracy is fundamental to many applications.</p>
+    
+    <p>While it is true that every operating system and/or framework gives you some ability to know what time it is, that reference is only as good as the underlying hardware clock (either physical or virtual) and the time source used to synchronize it. Some examples of the challenges with keeping time are:</p>
+    
+    <ul>
+        <li>Virtualization can cause virtual OS clocks to slow down/speed up based on load</li>
+        <li>Modern datacenters run much warmer than you would expect, and this can impact the physical clock crystal rates</li>
+        <li>NTP allows time adjustments that actually can jump <em>backwards</em>, casuing repeats of timestamps</li>
+        <li>Leap time can "smear" time and can also cause a moment in time to repeat</li>
+        <li>Many cloud environments (such as Azure and AWS) do not provide SLA's on clock synchronization</li>
+        <li>SNTP typically can't provide accuracy better than <a href="https://support.microsoft.com/en-us/help/939322/support-boundary-to-configure-the-windows-time-service-for-high-accura" title="SNTP Accuracy Article">1 or 2 seconds</a> (sometimes worse)</li>
+        <li>Client or edge devices are notorious for low synchronziation frequencies, leading to much higher levels of drift</li>
+    </ul>
+
+    <p>All of these factors add up to strange effects for programs that make the unfortunate assumption that time flows linearly forward. For example, CloudFare was <a href="https://blog.cloudflare.com/how-and-why-the-leap-second-affected-cloudflare-dns/" title="CloudFare Leap Second Article">impacted by leap second adjustments</a> causing certain types of DNS resolutions to fail. The Orleans team identified <a href="https://github.com/dotnet/orleans/issues/2916">several design issues that are impacted by clock drift</a>, forcing re-design of those areas.  Google's <a href="https://developers.google.com/time/smear" title="Leap Smear">Leap Smear efforts</a> (while effective) highlight that clock rates can change frequently, both speeding up and slowing down over long periods of time. All of these factors point to a simple fact: relying on perfectly synchronized clocks between multiple computers will end with pain and dispair.</p>
+
+    <h3>Failure Cases</h3>
+
+    <p>There are two possibilties..client time shifts, and server time shifts. If the client time shifts backwards, this will make the message appear "older" than it actually is, causing messages to be dropped. The same condition happens if the server time jumps forward. If we flip these cases around, we see messages may actually live longer than expected if the client time moves forward (or server moves backward).</p>
+
+    <p>To visualize these issues, let's utilize a fairly simple test program (C# example shown below). This  harness will continuously measure how "old" a message timestamp is (every second), compared to the system clock:</p>
+
+    <pre>
+static void Main(string[] args)
+{
+    var messageTimeStamp = DateTime.UtcNow;
+    var expireAfter = TimeSpan.FromMinutes(5);
+
+    var timer = new Timer((state) =>
+    {
+        var currentAge = DateTime.UtcNow - messageTimeStamp;
+        Console.WriteLine($"Message is now {currentAge.TotalMilliseconds} ms old");
+
+        if (currentAge > expireAfter)
+        {
+            Console.WriteLine("EXPIRED!!!");
+        }
+    });
+
+    timer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+    Console.ReadLine();
+}
+    </pre>
+
+    <p>While this program is running, we'll make adjustments to the system to clock to demonstrate the issues that can occur. We're going to amplify the effects by moving the clock by hours each time, but note these same issues will also occur on much smaller timescales. With these parameters in mind, here is an example trace while the system clock is being adjusted:</p>
+
+    <pre>
+### NOTE: Default system clock (this is normal)
+Message is now 1001.045 ms old
+Message is now 2001.693 ms old
+Message is now 3002.3793 ms old
+Message is now 4002.5631 ms old
+Message is now 5003.4379 ms old
+Message is now 6003.8685 ms old
+Message is now 7004.3192 ms old
+Message is now 8004.502 ms old
+
+### NOTE: Clock moved ahead a few hours
+Message is now 10804538.4192 ms old - EXPIRED!!!
+Message is now 10805539.4194 ms old - EXPIRED!!!
+Message is now 10806540.4248 ms old - EXPIRED!!!
+Message is now 10807541.4255 ms old - EXPIRED!!!
+Message is now 10808541.8356 ms old - EXPIRED!!!
+Message is now 10809541.9583 ms old - EXPIRED!!!
+Message is now 10810542.5662 ms old - EXPIRED!!!
+Message is now 10811542.8391 ms old - EXPIRED!!!
+Message is now 10812543.2585 ms old - EXPIRED!!!
+Message is now 10813544.2933 ms old - EXPIRED!!!
+Message is now 10814544.527 ms old - EXPIRED!!!
+Message is now 10815545.1764 ms old - EXPIRED!!!
+Message is now 10816545.7657 ms old - EXPIRED!!!
+
+### NOTE: Clock moved back several hours
+Message is now -43188641.6532 ms old
+Message is now -43187641.1251 ms old
+Message is now -43186640.9049 ms old
+Message is now -43185640.6506 ms old
+Message is now -43184640.4691 ms old
+Message is now -43183639.6284 ms old
+Message is now -43182639.2505 ms old
+    </pre>
+
+    <p>Obviously, the concept of "How old is this?" is much more difficult once we no longer have stable clocks. Notice how it is possible to end up with "negative" time differences, which can easily cause havoc downstream (similar to the CloudFare issue linked above). Alernatively, we can end up discarding messages that seem to be expired (but clearly shouldn't be).</p>
+
+    <h3>Possible Solutions</h3>
+
+    <p>The first option for solving drift between a sender and receiver is to no longer rely on timestamps from the sender. In this model, the client only sends the TTL duration, and the receiver stamps the message on arrival. Then, this can be compared to the current time on the receiver and, if beyond the TTL duration, the message can be expired. This allows us to move the "IsExpired" check inside the message itself, as shown below:</p>
+
+    <pre>
+class ExampleMessage
+{
+    TimeSpan TtlDuration { get; set; }
+    DateTime MessageReceived { get; set; }
+    byte[] Data { get; set; }
+
+    IsExpired {
+        get { 
+            return ((DateTime.UtcNow - MessageReceived) > TtlDuration);
+        }
+    }
+}
+    </pre>
+
+    <p>This is exactly the solution the Orleans team chose to use to address their issues. Note, however, that clock drift during the checking interval can still yield incorrect results, but we are no longer relient on synchronization between machines.</p>
+
+    <p>Another approach is to make the sender an active participant in expiring / removing work that it deems expired. This is built on the notion that clients are also part of any distributed system. Here, we would implement a second message channel (essentially a priority queue) for senders to notify receivers that an inbound message should not be processed, as shown below"</p>
+
+    <p class="center"><img src="/media/TODO.png" alt="TODO Exchange" /></p>
+
+    <p>This implementation relies on the client remaining active during the processing period, so this won't be suitable for scenarios where clients may disconnect (or be killed) after sending messages.</p>
+
+    <p>Finally, you could use brokered messaging platform, such as <a href="https://docs.microsoft.com/en-us/azure/service-bus-messaging/" title="Azure Service Bus">Azure Service Bus</a>. This really doesn't "solve" the problem, but it some cases may offload the handling of message lifetimes to the broker, removing complexity from your application. Note however, that for brokers that offer partitioned receivers, there may still be drift between individual listeners as there are no gaurantees on time sync between the independent resources handling the partitions. An overview of configuring Time-To-Live on a BrokeredMessage is covered <a href="https://docs.microsoft.com/en-us/dotnet/api/microsoft.servicebus.messaging.brokeredmessage.timetolive?view=azureservicebus-4.1.1">here</a>.</p>
+    
+    <h3>Conclusions</h3>
+
+    <p>As we've shown above, time synchronization is fundamental to many implicit behaviors we have come to rely on. This is especially important when we start exchanging messages with other computers (and some we don't directly control), or even client devices such as tablets and phones. As you're designing your messaging strategy, be sure to think about the impacts of clock drift, and make sure you application is able to handle the various types of oddities that can result.</p>
+
+</div><div id="disqus_thread"></div>
+<script>
+(function() {
+var d = document, s = d.createElement('script');
+s.src = 'https://mjyeaney-web.disqus.com/embed.js';
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+                </div>
+
+                <div class="rightCol">
+                    <div class="mugShot">
+                        <img src="/images/mugshot.png" />
+                    </div>
+                    <p class="social">
+                        <!--<a title="RSS" href="rss.xml"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyNpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNS1jMDIxIDc5LjE1NDkxMSwgMjAxMy8xMC8yOS0xMTo0NzoxNiAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIChNYWNpbnRvc2gpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjRDMzYxNkYzREUyMTExRTNBOTNEOEVBQzQ4MkZEODU2IiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjRDMzYxNkY0REUyMTExRTNBOTNEOEVBQzQ4MkZEODU2Ij4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6NEMzNjE2RjFERTIxMTFFM0E5M0Q4RUFDNDgyRkQ4NTYiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6NEMzNjE2RjJERTIxMTFFM0E5M0Q4RUFDNDgyRkQ4NTYiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz4hma2gAAACg0lEQVR42uxXTUhUURT+7n3+55RZSv5AZRb9UYtsNAoEy1oVlRWii2yTBCJtbDYltjRq0R+4yVW1cAqin0VlVFA0MrWspB8haCwzLJ3SLOfezrt3mMsUWOKbHsQceLz37rvc853vfOee+9hE04IGAKfo8uDfWpiuZkYARlxwHgPBXXRum4fDZUsCSAJI+SPCg34gPQv41A/090K+DEC+6gEiE44AsPcBOdkE6+gDILcofvDLEGTAD3G3Exj54EIKsnPBNjXCarsPVn2AVrESxwArWALMygfyFoItKgNbUQVkZMfNkX2PITqbgOEB5wH8ZqkZYN4d4FvI4exCM04aiZyuAwbfOMzAxv0UogBCzynSJ8CPb/pDWib4tkNglQ3xIE7snBITUxPh+FfI4BWIm2eAz+/1AuW7wOvb6YGbdJysBUQkASJMnwG2oR7W4TvKsXLYcwnigs9EVFKmWftLs1q9OW2TzsgkwY0Og83MU/nXu0cq2KrNei94HaT0PAPzzAGbvzoKYg3kI79izDkRUqkxbw3lvYWa6NzYsDjfolhAWhYx003CLNDM3O6AuNruYAoopzLQhcixrZChXrPAbiIwZx7wfRTi1lkT2bo9xG+KMwBY8XKwlVUqSlt8omMfnWU+xnShSlLp4bKh3d6sSsunD4BV7gX33QBvPAfLd033BRvE9eNmztrtWh9UovLpPTO+uMIBAOvrzEt+CUVVYaIdC5vqIOHpMgya+YVLHUjBUOiX97f6ThVgd8aYFS3T94E+MxYV5LTaseg6Al7TSptRMeTDi5DvXpiP1J5B+tBUseg5d9CAHh9LQC9IHsmSAP5HAGEX/auf02aXQKjf858CDADXvtYTZUhUqQAAAABJRU5ErkJggg==" /></a>--> 
+                        <a title="Twitter" href="https://twitter.com/mikelikesitalot"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyNpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNS1jMDIxIDc5LjE1NDkxMSwgMjAxMy8xMC8yOS0xMTo0NzoxNiAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIChNYWNpbnRvc2gpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjRDMzYxNkY3REUyMTExRTNBOTNEOEVBQzQ4MkZEODU2IiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjRDMzYxNkY4REUyMTExRTNBOTNEOEVBQzQ4MkZEODU2Ij4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6NEMzNjE2RjVERTIxMTFFM0E5M0Q4RUFDNDgyRkQ4NTYiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6NEMzNjE2RjZERTIxMTFFM0E5M0Q4RUFDNDgyRkQ4NTYiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz7OrUulAAACgklEQVR42uyXy2sTURjFz0zezbtpmmi1SQhJSmKtVBDRjUgVcdG6UBfqQnDnon9M6dKVO5euRBTxgaVgK5GKpSZN2pCapM1Lp82reXhnqMXQmJnJqLPJgcslcLnnx3e/e+5EOf8pfh/AHBlG/F8xZMzSMpnjwHOOlsn8EIKGzOoDyA6g/FsbfY3n8fFzGvnvFZgMaoR8dkwEh0FTFGr7DezkSxhxGIUD5ItlvPuQxPQVHyge82dv1rGwvHX4O7UNrMXyCK9mYDZosEbg7s6ExFUgslHA0koKzVYL01M+KOjOGF8i2Tbz3xVLFLn57LgTyTSDYdsAtBqlsB6oVOvczJb10ZMwV8JOWlpJ8x4Pu4fFqDli3hXATmh/KZliMP94GU9fRJDJ7rWty5Gj4tMdUv6gb0jcEQQ8NljNWhRIU7FqNlvckbDDZtXBfcIMm0WHRqPJC+AeMYu/BdHNAs5NHMerhQ3s19tNcoUyNwTdc9I7GrVSPEDxRwXP38YkX0+2ShTVQxCd8tuhVikkA7i6lL8rgH5AhRtX/VyQSNGY19Z7Eo4H7FAqaLx8H8d2riTa3GLSwu8ZlPYWLIa3ejJndfmCC3wF5AWYISmo16lEm3tOWnAm6JD+Gg6SLn54bxKTISfXF0JkIql3+/oYhHQPLXTDqYtueEetvGvNZO2DW6dh0Kt7f47LlTqKTAXVagPZQgnrm0WsRrNokDTsJq/LipvXAoLN/wig1SqRS5TxejFxJPs7yTGkx6XzowiR7BB7aTsCUAdBxI7Uzi6i5Gn+ltkFs1dDtVbnAoottdNugM9jxTEy/7MvInZzKQb9j9I+gBAARkZ/hgWYlQmC+3v+U4ABABMTxxh2K63cAAAAAElFTkSuQmCC" /></a>
+                        <a title="LinkedIn" href="https://www.linkedin.com/pub/michael-yeaney/28/a11/52a/"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAWdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjA76PVpAAAC+UlEQVRYR8WVz29MURTH67eNYGFhZSM2EkH4A9hZkUjEzmq0ulDpSjQiNBUbG0m1M0RTIWpQokkzRGibIBpBk/rRhKANIhmESSj9cZxzf5/77rzOm5lyk8+8ueecd8/3nnPfezU1e9P1CPwnVpKAkEPRHrBVGTv5B8lCiJ+UhxuQImGOON8/k90lsjbCHKEAjWuvJkFjUWahTWxidtoOS/afg4bL96H13jDUXRiARfVnbVw1YRMlYG5tGu6++gDu6HwwYuOSENc+8nEDlhiNyw90wNT0tEoNMI3/P3//CfNqM3yBcvAFsQk5kQX7zsDb/A+VXo6+kY/8RkOF5yJoRDY2X4N+TDr2tQA3h97BqoMXg3EVEzQ6zAnYqoJuRcSh2HKyB3acvmXYfLxb2Jfh+XDtxIrGTjy4Gdh2qhdO5J5CW99zaLoxCBuar0bWjcAm6gzQrp+N5VX35cg+fiNiaFF/7Gy7HXlqaNBBTg+8EGeK5XEJGUnAUBEB645eURY56Al5/6Vg/uurBaCl94mXQ73e6anjDkkpAvxkE5NT8PLTN8gXfjEfjcL4H1ja0CETqkddEiOgWAv8CtAYxSdl7ZGs8C/GN2bX4GvlsWN7aw79mFDlMLCJOplJBaTO98vdqHVWN13C3fMqNWYfGr/OI67G6JBUwFZ8Ysz9KGQhHrrfE5NGAI1D1x/ZGIFqBTOWWQEpwFaABIyjAHdwARSr4q0RSSCAdqd3KATosiJaQLACFKfbFamAggQUewr0e0AvTlfWAsQVoOOiLVCEjHEV2NTSLeYRAeYQyjMQWwGnXWULoKET2ArIhX0BdLUVoJg4AagwrgWuAD1YC/D+oodQ7N7GCYzBgQTQByU3PGqgjwv51hzuYnZi/TH66Nidza/LQA9+wt2Y3Zk7wieJq0CpUM+dl4/Em7Mdk8+5J64Cs4cvGGETV3GcTaN9eje+TexYz/3kqhrcmJDIomSbYS5w7mOOYHCFlCBgl3UkgHZvFqf/GscfujLSe/4ClyqMzx6et5cAAAAASUVORK5CYII=" /></a>
+                        <a title="GitHub" href="https://github.com/mjyeaney"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyRpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoTWFjaW50b3NoKSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDpFNTE3OEEyQTk5QTAxMUUyOUExNUJDMTA0NkE4OTA0RCIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDpFNTE3OEEyQjk5QTAxMUUyOUExNUJDMTA0NkE4OTA0RCI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOkU1MTc4QTI4OTlBMDExRTI5QTE1QkMxMDQ2QTg5MDREIiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOkU1MTc4QTI5OTlBMDExRTI5QTE1QkMxMDQ2QTg5MDREIi8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+m4QGuQAAAyRJREFUeNrEl21ojWEYx895TDPbMNlBK46IUiNmPvHBSUjaqc0H8pF5+aDUKPEBqU2NhRQpX5Rv5jWlDIWlMCv7MMSWsWwmb3tpXub4XXWdPHvc9/Gc41nu+nedc7/8r/99PffLdYdDPsvkwsgkTBwsA/PADJCnzX2gHTwBt8Hl7p537/3whn04XoDZDcpBlk+9P8AFcAghzRkJwPF4zGGw0Y9QS0mAM2AnQj77FqCzrtcwB1Hk81SYojHK4DyGuQ6mhIIrBWB9Xm7ug/6B/nZrBHBegrkFxoVGpnwBMSLR9EcEcC4qb8pP14BWcBcUgewMnF3T34VqhWMFkThLJAalwnENOAKiHpJq1FZgI2AT6HZtuxZwR9GidSHtI30jOrbawxlVX78/AbNfhHlomEUJJI89O2MqeE79T8/nk8nMBm/dK576hZgmA3cp/R4l9/UeSxiHLVIlNm4nFfT0bxyuIj7LHRTKai+zdJobwMKzcZSJb0ePV5PKN+BqAAKE47UlMnERELMM3EdYP/yrd+XYb2mOiYBiQ8OQnoRBlXrl9JZix7D1pHTazu4MoyBcnYamqAjIMTR8G4FT8LuhLsexXYYjICBiqhQBvYb6fLZIJCjPypVvaOoVAW2WcasCnL2Nq82xHJNSqlCeFcDshaPK0twkAhosjZL31QYw+1rlMpWGMArl23SBsZZO58F2tlJXmjOXS+s4WGvpMiBJT/I2PInZ6lIs9/hBsNS1hS6BG0DSqmYEDRlCXQrmy50P1oDRKTSegmNbUsA0zDMwRhPJXeCE3vWLPQMvan6X8AgIa1vcR4AkGZkDR4ejJ1UHpsaVI0g2LInpOsNFUud1rhxSV+fzC9Woz2EZkWQuja7/B+jUrgtIMpy9YCW4n4K41YfzRneW5E1KJTe4B2Zq1Q5EHEtj4U3AfEzR5SVY4l7QYQPJdN2as7RKBF0BPZqqH4VgMAMBL8Byxr7y8zCZiDlnOcEKIPmUpgB5Z2ww5RdOiiRiNajUmWda5IG6WbhsyY2fx6m8gLcoJDJFkH219M3We1+cnda93pfycZpIJEL/s/wSYADmOAwAQgdpBAAAAABJRU5ErkJggg==" /></a>
+                    </p>
+                    <p class="banter">Ramblings and thoughts on cloud, distributed systems, formal methods...maybe even some code, too!</p>
+
+                    <a class="twitter-timeline" data-height="800" data-theme="light" href="https://twitter.com/mikelikesitalot">Tweets by mikelikesitalot</a> 
+                    <script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+                </div>
+            </div>
+        </div>
+
+        <div id="footer">
+            <div class="wrapper">
+                <p>&copy; 2017, Michael J. Yeaney, All Rights Reserved</p>
+            </div>
+        </div>
+        
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+        <script src="/common.js"></script>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-51915288-1', 'mjyeaney.github.io');
+          ga('send', 'pageview');
+
+        </script>
+    </body>
+</html>
