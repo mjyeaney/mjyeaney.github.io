@@ -126,16 +126,16 @@
             path += '/index.html';
             logMessage('Creating ' + path + '...');
 
-            // We need the disqus config options
-            var pageIdentifier = path.replace(/\//g, '').replace('index.html', '');
-            var diqusConfig = `
-                <script>
-                var disqus_config = function () {
-                    this.page.url = '/${path}';
-                    this.page.identifier = ${pageIdentifier};
-                };
-                </script>
-            `;
+            // // We need the disqus config options
+            // var pageIdentifier = path.replace(/\//g, '').replace('index.html', '');
+            // var diqusConfig = `
+            //     <script>
+            //     var disqus_config = function () {
+            //         this.page.url = '/${path}';
+            //         this.page.identifier = ${pageIdentifier};
+            //     };
+            //     </script>
+            // `;
 
             // Create index data for teasers
             teaser = getSummaryInformation(content.toString());
@@ -158,7 +158,12 @@
     //
     function updateIndex(){
         // Initally, there are no posts.
-        var indexContent = '<div class="post"><h2>Something\'s missing...</h2><p class="noItems">No active posts - please check back again later.</p></div>';
+        var indexContent = `
+            <div class="post">
+                <h2>Something\'s missing...</h2>
+                <p class="noItems">No active posts - please check back again later.</p>
+            </div>
+        `;
 
         logMessage('Creating index page(s)...');
 
@@ -175,11 +180,11 @@
             //
             indexContent = index.reduce(function(p, c){
                 return p + 
-                    '<div class="post frontPage">' +
-                    '<h2><a href="' + c.link + '" title="Read more">' + c.title + '</a></h2>' +
-                    '<p>' + c.intro + '</p>' + 
-                    '<div class="authorInfo">' + c.authorInfo + '</div>' +
-                    '</div>';
+                    `<div class="post frontPage">
+                        <h2><a href="${c.link}" title="Read more">${c.title}</a></h2>
+                        <p>${c.intro}</p>
+                        <div class="authorInfo">${c.authorInfo}</div>
+                    </div>`;
             }, '');
         }
 
