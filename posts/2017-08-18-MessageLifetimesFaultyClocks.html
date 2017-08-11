@@ -1,0 +1,64 @@
+<div class="post" data-tags="Distributed, Messaging, Clocks" data-date="2017-08-18">
+    
+    <h2 class="title">Message Lifetimes and Faulty Clocks</h2>
+    <div class="authorInfo">Michael Yeaney <span class="dateText">August 18, 2017</span></div>
+
+    <p class="teaser">Sending messages between two computers is commonplace, especially in the context of systems integration and distributed computing. One common requirement that arises is to not process messages that are older than some threshold. However, this seemingly simple requirement relies on a level of time synchronization that few environments can provide.</p>
+
+    <p>In this post, we'll cover the basic requirements of expiring messages, and the problems associated with accurate timekeeping between mutliple computers. Next, we'll demonstrate a few possible failure cases caused by clock drift, and present a few different options for working around these problems.</p>
+
+    <h3>Expiring messages and saving work</h3>
+
+    <p>To begin, lets assume to computers (labeled C<sub>1</sub> and C<sub>2</sub> below) connected together on a network. C<sub>1</sub> will send a simple message to C<sub>2</sub> asynchronously (not waiting for a response) with one simple requirement: If C<sub>2</sub> cannot process the message before it is 5 minutes old, it should ignore it.</p>
+
+    <p class="center"><img src="/media/TODO.png" alt="TODO Diagram" /></p>
+
+    <p>If we consider what such a message may look like, we can imagine a set of fields similar to the following:</p>
+
+    <pre>
+class ExampleMessage
+{
+    DateTime TimeSent { get; set; }
+
+    byte[] Data { get; set; }
+}
+    </pre>
+
+    <p>Here, we can see this simple message contains an opaque array of data (the <span class="inlineCode">byte[]</span> data), and a timestamp indicating when the message was sent. We can also imagine the receiver logic to correctly process this message, based off of our business requirement to not process a message that is older than 5 mintes:</p>
+
+    <pre>
+void ProcessMessage(ExampleMessage nextMsg)
+{
+    if ((DateTime.Now - nextMsg.TimeSent) > TimeSpan.FromMinues(5)){
+        // Ignore message
+    } else {
+        // Read + process messages
+    }
+}
+    </pre>
+
+    <p>Seems fairly straightforward, but if we take a step back we can see that this simple design has a built-in requirement that <em>both machines have nearly perfrect time synchronization</em>. Simple, right? Just setup NTP and move on. Or maybe not.</p>
+
+    <h3>A Question of Time</h3>
+
+    <p>While it is true that every operating system and/or framework gives you some ability to know what time it is, that reference is only as good as the underlying hardware clock (either physical or virtual) and the time source used to synchronize it. For example, if we consider operating a VM in a modern cloud environment, we immediately have the following challenges with regards to time keeping:</p>
+    
+    <ul>
+        <li>Virtualization can cause virtual OS clocks to slow down/speed up based on load</li>
+        <li>Modern datacenters run much warmer than you would expect, and this can impact the physical clock drift rates.</li>
+        <li>NTP allows time adjustments that actually can jump <em>backwards</em></li>
+        <li>Certain configurations of SNTP/NTP will simply stop adjustments if a local clock is too far out</li>
+        <li>SNTP/NTP was not designed to coordinate time <em>between computers</em>; meaning clock drift between any 2 (or more) is indepedant of others</li>
+    </ul>
+
+    <p>All of these factors add up to strange effects for programs that make the assumption that time flows linearly forward. For example, CloudFare was impacted by leap second adjustments causing time to move backwards. 
+
+    <h3>Failure Cases</h3>
+
+    <h3>Possible Solutions</h3>
+    
+    <h3>Conclusions</h3>
+
+    <p class="center"><img src="/media/TODO.png" alt="TODO Diagram" /></p>
+
+</div>

@@ -7,6 +7,7 @@ a, a:visited, a:active, a:hover { outline: none; text-decoration: none; color: #
 table, p, blockquote, ol, ul { margin-bottom: 1em; }
 p { text-align: justify; }
 p.center { text-align: center; }
+ul, ol { margin: 0 4em 1em 4em; }
 
 blockquote { 
     margin: 2em; 
