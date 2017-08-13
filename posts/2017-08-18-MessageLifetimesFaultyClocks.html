@@ -18,7 +18,7 @@
     <pre>
 class ExampleMessage
 {
-    DateTime TimeSent { get; set; }
+    DateTime TimeSentUtc { get; set; }
     byte[] Data { get; set; }
 }
     </pre>
@@ -27,7 +27,7 @@ class ExampleMessage
 
     <pre>
 // ...
-if ((DateTime.Now - nextMsg.TimeSent) > TimeSpan.FromMinues(5)){
+if ((DateTime.UtcNow - nextMsg.TimeSentUtc) > TimeSpan.FromMinues(5)){
     // Ignore message - it's expired
 } else {
     // Read + process message
@@ -35,11 +35,11 @@ if ((DateTime.Now - nextMsg.TimeSent) > TimeSpan.FromMinues(5)){
 // ...
     </pre>
 
-    <p>Seems fairly straightforward, but if we take a step back we can see that this simple design has a built-in requirement that <em>both machines have nearly perfrect time synchronization</em>. Simple, right? Just setup NTP and move on. Or maybe not.</p>
+    <p>Seems fairly straightforward, but if we take a step back we can see that this simple design has a some troublesome built-in requirements. First, the code assumes that <em>both machines have nearly perfrect time synchronization</em>. Secondly, we're assuming that time moves forward by positioning the <span class="inlineCode">nextMsg.TimeSent</span> as less than <span class="inlineCode">DateTime.UtcNow</span>. While these may seem reasonable, we'll see in the next section that time can be rather tricky to deal with.</p>
 
     <h3>A Question of Time</h3>
 
-    <p>Accurate clocks are critical to determining the order of operations and establishing proper relationship between events. Log file entries, database tables, and emails are all marked with (and ordered by) timestamps, so ensuring reasonable accuracy is fundamental to many applications.</p>
+    <p>Accurate clocks are critical to determining the order of operations and establishing proper relationship between events. Log file entries, database tables, and emails are all marked with (and ordered by) timestamps, so ensuring reasonable accuracy is fundamental to the behavior of many applications.</p>
     
     <p>While it is true that every operating system and/or framework gives you some ability to know what time it is, that reference is only as good as the underlying hardware clock (either physical or virtual) and the time source used to synchronize it. Some examples of the challenges with keeping time are:</p>
     
@@ -149,7 +149,7 @@ class ExampleMessage
 
     <p class="center"><img src="/media/TODO.png" alt="TODO Exchange" /></p>
 
-    <p>This implementation relies on the client remaining active during the processing period, so this won't be suitable for scenarios where clients may disconnect (or be killed) after sending messages.</p>
+    <p>This implementation relies on the client remaining active during the processing period, so this won't be suitable for scenarios where clients may disconnect (or be killed) after sending messages. However it does enable the client cancelling messages for other business-logic related reasons (not just TTL expiration).</p>
 
     <p>Finally, you could use brokered messaging platform, such as <a href="https://docs.microsoft.com/en-us/azure/service-bus-messaging/" title="Azure Service Bus">Azure Service Bus</a>. This really doesn't "solve" the problem, but it some cases may offload the handling of message lifetimes to the broker, removing complexity from your application. Note however, that for brokers that offer partitioned receivers, there may still be drift between individual listeners as there are no gaurantees on time sync between the independent resources handling the partitions. An overview of configuring Time-To-Live on a BrokeredMessage is covered <a href="https://docs.microsoft.com/en-us/dotnet/api/microsoft.servicebus.messaging.brokeredmessage.timetolive?view=azureservicebus-4.1.1">here</a>.</p>
     
