@@ -28,7 +28,7 @@
     <h2 class="title">Message Lifetimes and Faulty Clocks</h2>
     <div class="authorInfo">Michael Yeaney <span class="dateText">August 18, 2017</span></div>
 
-    <p class="teaser">Sending messages between two computers is a common task, especially in the context of systems integration, distributed computing and of course, cloud deployed applications. One common requirement that arises is to not process messages that are older than some established threshold. However, this seemingly simple requirement relies on a level of time synchronization that can be more difficult to achieve than it seems.</p>
+    <p class="teaser">Sending messages between two computers is a common task, especially in the context of modern cloud applications and Internet-of-Things (IoT) deployments. One common requirement that arises is to not process messages that are older than some established threshold. However, this seemingly simple requirement relies on a level of time synchronization that can be more difficult to achieve than it seems.</p>
 
     <p>In this post, we'll explore the scenario of expiring messages, and the problems associated with accurate timekeeping between mutliple computers. Next, we'll demonstrate a few possible failure cases caused by clock drift, and present a several options for working around these problems.</p>
 
@@ -60,7 +60,7 @@ if ((DateTime.UtcNow - nextMsg.TimeSentUtc) > TimeSpan.FromMinues(5)){
 // ...
     </pre>
 
-    <p>Seems fairly straightforward, but if we take a step back we can see that this simple design has a some troublesome built-in requirements. First, the code assumes that <em>both machines have nearly perfrect time synchronization</em>, demonstrated by comparing timestamps that oriented on different machines. Secondly, we're assuming that time only moves forward by positioning the <span class="inlineCode">nextMsg.TimeSent</span> as numerically less than <span class="inlineCode">DateTime.UtcNow</span>. While these may seem reasonable, lets see how these assumptions can break down.</p>
+    <p>Seems fairly straightforward, but if we take a step back we can see that this simple design has a some troublesome built-in requirements. First, the code assumes that <em>both machines have nearly perfrect time synchronization</em>, demonstrated by comparing timestamps that originated on different machines. Secondly, we're assuming that time only moves forward by positioning the <span class="inlineCode">nextMsg.TimeSent</span> as numerically less-than <span class="inlineCode">DateTime.UtcNow</span>. While these may seem reasonable, lets see how these assumptions can break down.</p>
 
     <h3>A Question of Time</h3>
 
@@ -69,17 +69,17 @@ if ((DateTime.UtcNow - nextMsg.TimeSentUtc) > TimeSpan.FromMinues(5)){
     <p>While it is true that every operating system and/or framework gives you some ability to know what time it is, that reference is only as good as the underlying hardware clock (either physical or virtual) and the time source used to synchronize it. Some examples of the challenges with keeping time are:</p>
     
     <ul>
-        <li>Virtualization can cause guest OS clocks to slow down/speed up based on load</li>
-        <li>Modern datacenters run much warmer than you would expect, and this can impact the physical clock crystal rates</li>
-        <li>NTP allows time adjustments that actually can jump <em>backwards</em>, casuing repeats of timestamps</li>
-        <li>Leap time can "<a href="https://docs.ntpsec.org/latest/leapsmear.html" title="Leap Smear">smear</a>" time and can also cause moments in time to repeat (i.e., duplicate timestamps)</li>
-        <li>Many cloud environments (such as Azure and AWS) do not provide SLA's on clock synchronization</li>
-        <li>On Windows, SNTP typically can't provide accuracy better than <a href="https://support.microsoft.com/en-us/help/939322/support-boundary-to-configure-the-windows-time-service-for-high-accura" title="SNTP Accuracy Article">1 or 2 seconds</a> (or worse). Note that Windows Server 2016 has made improvements in this area.</li>
-        <li>Client or edge devices (such as smartphones, tables, etc.) are notorious for low synchronziation frequencies, leading to much higher levels of drift</li>
-        <li>Network perimeter hardening can inadvertently block NTP traffic, making synchronization impossible</li>
+        <li>Virtualization can cause guest OS clocks to slow down/speed up based on load.</li>
+        <li>Modern datacenters run much warmer than you would expect, and this can impact the physical quartz crystal rates.</li>
+        <li>NTP allows time adjustments that actually can jump <em>backwards</em>, casuing repeats of timestamps.</li>
+        <li>Leap time can "<a href="https://docs.ntpsec.org/latest/leapsmear.html" title="Leap Smear">smear</a>" time and can also cause moments in time to repeat (i.e., duplicate timestamps).</li>
+        <li>Many cloud environments (such as Azure and AWS) do not provide SLA's on clock synchronization between machines.</li>
+        <li>On Windows, SNTP typically can't provide accuracy better than <a href="https://support.microsoft.com/en-us/help/939322/support-boundary-to-configure-the-windows-time-service-for-high-accura" title="SNTP Accuracy Article">1 or 2 seconds</a> (or worse). Note that <a href="https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/get-started/windows-time-service/windows-2016-accurate-time" title="Windows Accurate Time">Windows Server 2016</a> has made improvements in this area, provided appropriate network symmetry.</li>
+        <li>Client or edge devices (such as smartphones, tables, Arduino, Raspberry Pi, etc.) are notorious for low (or none) synchronziation frequencies, leading to much higher levels of drift.</li>
+        <li>Network perimeter hardening can inadvertently block NTP traffic, making synchronization impossible.</li>
     </ul>
 
-    <p>All of these factors can result in strange effects for programs that make the unfortunate assumption that time flows linearly forward. For example, CloudFare was <a href="https://blog.cloudflare.com/how-and-why-the-leap-second-affected-cloudflare-dns/" title="CloudFare Leap Second Article">impacted by leap second adjustments</a> causing certain types of DNS resolutions to fail. The Orleans team identified <a href="https://github.com/dotnet/orleans/issues/2916">several runtime issues caused by clock drift</a> that impacted correct functionality.  Google's <a href="https://developers.google.com/time/smear" title="Leap Smear">Leap Smear efforts</a> (while effective) highlight that clock rates can change frequently, both speeding up and slowing down over periods of time. All of these factors point to a simple fact: relying on perfectly synchronized clocks between multiple computers will end with pain and dispair.</p>
+    <p>All of these factors can result in strange effects for programs that make the unfortunate assumption that time flows linearly forward. For example, CloudFare was <a href="https://blog.cloudflare.com/how-and-why-the-leap-second-affected-cloudflare-dns/" title="CloudFare Leap Second Article">impacted by leap second adjustments</a> causing certain types of DNS resolutions to fail. The Orleans team identified <a href="https://github.com/dotnet/orleans/issues/2916" title="Orleans Github Issues">several runtime issues caused by clock drift</a> that impacted correct functionality.  Google's <a href="https://developers.google.com/time/smear" title="Leap Smear">Leap Smear efforts</a> (while effective) highlight that clock rates can change frequently, both speeding up and slowing down over periods of time. All of these factors point to a simple fact: relying on perfectly synchronized clocks between multiple computers will end with pain and dispair.</p>
 
     <h3>Failure Cases</h3>
 
@@ -169,15 +169,15 @@ class ExampleMessage
 }
     </pre>
 
-    <p>This is a variation of the solution the Orleans team chose to use to address their issues. Note, however, that clock drift during processing can still yield incorrect results, but we are no longer relying on synchronization between machines.</p>
+    <p>This is a simplification of the <a href="https://github.com/dotnet/orleans/pull/2922" title="Orleas Issue #2933">solution the Orleans team chose to use</a> to address their issues. Note, however, that clock drift during processing can still yield incorrect results; but we are no longer relying on synchronization between machines.</p>
 
     <p>Another approach is to make the sender an active participant in expiring / removing work that it deems expired. This is built on the notion that clients are also part of any distributed system. Here, we would implement a second message channel (essentially a priority queue) for senders to notify receivers that an previously sent message should not be processed, as shown below:</p>
 
-    <p class="center"><img src="/media/TODO.png" alt="TODO Exchange" /></p>
+    <p class="center"><img src="/media/MessageLifetimes2.png" alt="Message Exchange with Priority Channel" /></p>
 
     <p>This implementation relies on the client remaining active during the processing period, so this won't be suitable for scenarios where clients may disconnect (or be killed) after sending messages. However it does enable the client cancelling messages for other business-logic related reasons (beyond TTL expiration).</p>
 
-    <p>Finally, you can use a brokered messaging platform, such as <a href="https://docs.microsoft.com/en-us/azure/service-bus-messaging/" title="Azure Service Bus">Azure Service Bus</a> or <a href="https://kafka.apache.org/" title="Apache Kafka">Apache Kafka</a>. This really doesn't "solve" the problem, but it some cases may offload the handling of message lifetimes to the broker, removing complexity from your application. Note however, that for brokers that offer partitioned receivers, there may still be drift between individual listeners as there are no gaurantees on time sync between the independent resources handling the partitions.</p>
+    <p>Finally, you can use a brokered messaging platform, such as <a href="https://docs.microsoft.com/en-us/azure/service-bus-messaging/" title="Azure Service Bus">Azure Service Bus</a>. This doesn't completely solve the problem, but it some cases may offload the handling of message lifetimes to the broker, removing complexity from your application. Note however, that for brokers that enable partitioned receivers there may still be drift between individual receivers as there are no gaurantees on time sync between the independent resources handling the partitions.</p>
     
     <h3>Conclusions</h3>
 
