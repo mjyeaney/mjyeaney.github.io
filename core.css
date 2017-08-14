@@ -178,6 +178,7 @@ p.center img { cursor: pointer; }
 }
 
 @media print {
+    body { font-size: 15px; }
     #header { display: none; }
     #footer { display: none; }
     #content .rightCol { display: none; }

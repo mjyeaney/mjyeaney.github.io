@@ -3,13 +3,13 @@
     <h2 class="title">Message Lifetimes and Faulty Clocks</h2>
     <div class="authorInfo">Michael Yeaney <span class="dateText">August 18, 2017</span></div>
 
-    <p class="teaser">Sending messages between two computers is commonplace, especially in the context of systems integration and distributed computing. One common requirement that arises is to not process messages that are older than some threshold. However, this seemingly simple requirement relies on a level of time synchronization that can be difficult to achieve.</p>
+    <p class="teaser">Sending messages between two computers is a common task, especially in the context of systems integration, distributed computing and of course, cloud deployed applications. One common requirement that arises is to not process messages that are older than some established threshold. However, this seemingly simple requirement relies on a level of time synchronization that can be more difficult to achieve than it seems.</p>
 
-    <p>In this post, we'll explore the scenario of expireing messages, and the problems associated with accurate timekeeping between mutliple computers. Next, we'll demonstrate a few possible failure cases caused by clock drift, and present a few different options for working around these problems.</p>
+    <p>In this post, we'll explore the scenario of expiring messages, and the problems associated with accurate timekeeping between mutliple computers. Next, we'll demonstrate a few possible failure cases caused by clock drift, and present a several options for working around these problems.</p>
 
     <h3>Sample Use Case</h3>
 
-    <p>To begin, lets assume to computers (labeled C<sub>1</sub> and C<sub>2</sub> below) connected together on a network. C<sub>1</sub> will send a simple message to C<sub>2</sub> asynchronously (not waiting for a response) with one simple requirement: If C<sub>2</sub> cannot process the message before it is 5 minutes old, it should ignore it.</p>
+    <p>To begin, lets assume two computers (labeled C<sub>1</sub> and C<sub>2</sub> below) connected together on a network. C<sub>1</sub> will send a simple message to C<sub>2</sub> asynchronously (not waiting for a response) with one simple requirement: If C<sub>2</sub> cannot process the message before it is 5 minutes old, it should ignore it.</p>
 
     <p class="center"><img src="/media/MessageLifetimes1.png" alt="Basic Message Exchange" /></p>
 
@@ -23,7 +23,7 @@ class ExampleMessage
 }
     </pre>
 
-    <p>Here, we can see this simple message contains an opaque array of data (the <span class="inlineCode">byte[]</span> data), and a timestamp indicating when the message was sent. We can also imagine the receiver logic to correctly process this message, based off of our business requirement to not process a message that is older than 5 mintes:</p>
+    <p>Here, we can see the message contains an opaque piece of data (the <span class="inlineCode">byte[]</span> property), and a timestamp indicating when the message was sent. We can also imagine the receiver logic to correctly process this message, based off of our business requirement to not process a message that is older than 5 mintes:</p>
 
     <pre>
 // ...
@@ -35,7 +35,7 @@ if ((DateTime.UtcNow - nextMsg.TimeSentUtc) > TimeSpan.FromMinues(5)){
 // ...
     </pre>
 
-    <p>Seems fairly straightforward, but if we take a step back we can see that this simple design has a some troublesome built-in requirements. First, the code assumes that <em>both machines have nearly perfrect time synchronization</em>. Secondly, we're assuming that time moves forward by positioning the <span class="inlineCode">nextMsg.TimeSent</span> as less than <span class="inlineCode">DateTime.UtcNow</span>. While these may seem reasonable, we'll see in the next section that time can be rather tricky to deal with.</p>
+    <p>Seems fairly straightforward, but if we take a step back we can see that this simple design has a some troublesome built-in requirements. First, the code assumes that <em>both machines have nearly perfrect time synchronization</em>, demonstrated by comparing timestamps that oriented on different machines. Secondly, we're assuming that time only moves forward by positioning the <span class="inlineCode">nextMsg.TimeSent</span> as numerically less than <span class="inlineCode">DateTime.UtcNow</span>. While these may seem reasonable, lets see how these assumptions can break down.</p>
 
     <h3>A Question of Time</h3>
 
@@ -44,22 +44,23 @@ if ((DateTime.UtcNow - nextMsg.TimeSentUtc) > TimeSpan.FromMinues(5)){
     <p>While it is true that every operating system and/or framework gives you some ability to know what time it is, that reference is only as good as the underlying hardware clock (either physical or virtual) and the time source used to synchronize it. Some examples of the challenges with keeping time are:</p>
     
     <ul>
-        <li>Virtualization can cause virtual OS clocks to slow down/speed up based on load</li>
+        <li>Virtualization can cause guest OS clocks to slow down/speed up based on load</li>
         <li>Modern datacenters run much warmer than you would expect, and this can impact the physical clock crystal rates</li>
         <li>NTP allows time adjustments that actually can jump <em>backwards</em>, casuing repeats of timestamps</li>
-        <li>Leap time can "smear" time and can also cause a moment in time to repeat</li>
+        <li>Leap time can "<a href="https://docs.ntpsec.org/latest/leapsmear.html" title="Leap Smear">smear</a>" time and can also cause moments in time to repeat (i.e., duplicate timestamps)</li>
         <li>Many cloud environments (such as Azure and AWS) do not provide SLA's on clock synchronization</li>
-        <li>SNTP typically can't provide accuracy better than <a href="https://support.microsoft.com/en-us/help/939322/support-boundary-to-configure-the-windows-time-service-for-high-accura" title="SNTP Accuracy Article">1 or 2 seconds</a> (sometimes worse)</li>
-        <li>Client or edge devices are notorious for low synchronziation frequencies, leading to much higher levels of drift</li>
+        <li>On Windows, SNTP typically can't provide accuracy better than <a href="https://support.microsoft.com/en-us/help/939322/support-boundary-to-configure-the-windows-time-service-for-high-accura" title="SNTP Accuracy Article">1 or 2 seconds</a> (or worse). Note that Windows Server 2016 has made improvements in this area.</li>
+        <li>Client or edge devices (such as smartphones, tables, etc.) are notorious for low synchronziation frequencies, leading to much higher levels of drift</li>
+        <li>Network perimeter hardening can inadvertently block NTP traffic, making synchronization impossible</li>
     </ul>
 
-    <p>All of these factors add up to strange effects for programs that make the unfortunate assumption that time flows linearly forward. For example, CloudFare was <a href="https://blog.cloudflare.com/how-and-why-the-leap-second-affected-cloudflare-dns/" title="CloudFare Leap Second Article">impacted by leap second adjustments</a> causing certain types of DNS resolutions to fail. The Orleans team identified <a href="https://github.com/dotnet/orleans/issues/2916">several design issues that are impacted by clock drift</a>, forcing re-design of those areas.  Google's <a href="https://developers.google.com/time/smear" title="Leap Smear">Leap Smear efforts</a> (while effective) highlight that clock rates can change frequently, both speeding up and slowing down over long periods of time. All of these factors point to a simple fact: relying on perfectly synchronized clocks between multiple computers will end with pain and dispair.</p>
+    <p>All of these factors can result in strange effects for programs that make the unfortunate assumption that time flows linearly forward. For example, CloudFare was <a href="https://blog.cloudflare.com/how-and-why-the-leap-second-affected-cloudflare-dns/" title="CloudFare Leap Second Article">impacted by leap second adjustments</a> causing certain types of DNS resolutions to fail. The Orleans team identified <a href="https://github.com/dotnet/orleans/issues/2916" title="Orleans Github Issues">several runtime issues caused by clock drift</a> that impacted correct functionality.  Google's <a href="https://developers.google.com/time/smear" title="Leap Smear">Leap Smear efforts</a> (while effective) highlight that clock rates can change frequently, both speeding up and slowing down over periods of time. All of these factors point to a simple fact: relying on perfectly synchronized clocks between multiple computers will end with pain and dispair.</p>
 
     <h3>Failure Cases</h3>
 
-    <p>There are two possibilties..client time shifts, and server time shifts. If the client time shifts backwards, this will make the message appear "older" than it actually is, causing messages to be dropped. The same condition happens if the server time jumps forward. If we flip these cases around, we see messages may actually live longer than expected if the client time moves forward (or server moves backward).</p>
+    <p>There are two failure cases we need to consider in this example: client time shifting, and server time shifting. If the client time shifts backwards, this will make messages appear "older" than they actually are, causing them to be dropped. The same condition happens if the server time drifts forward. If we flip these cases around, we see messages may actually live longer than expected if the client time drifts forward (or server drifts backward).</p>
 
-    <p>To visualize these issues, let's utilize a fairly simple test program (C# example shown below). This  harness will continuously measure how "old" a message timestamp is (every second), compared to the system clock:</p>
+    <p>To visualize these issues, let's utilize a fairly simple test program (C# example shown below). This program will continuously measure how "old" a message timestamp is (every second), and compare it to the system clock; if the message timestamp is beyond the example threshold, the program will print 'EXPIRED':</p>
 
     <pre>
 static void Main(string[] args)
@@ -84,7 +85,7 @@ static void Main(string[] args)
 }
     </pre>
 
-    <p>While this program is running, we'll make adjustments to the system to clock to demonstrate the issues that can occur. We're going to amplify the effects by moving the clock by hours each time, but note these same issues will also occur on much smaller timescales. With these parameters in mind, here is an example trace while the system clock is being adjusted:</p>
+    <p>While this program is running, we'll make adjustments to the system to clock to demonstrate the issues that can occur. We're going to amplify the effects by moving the clock by hours each time, but note these same issues will also occur on much smaller timescales (minutes, seconds, or even milliseconds). With these parameters in mind, here is an example trace while the system clock is being adjusted:</p>
 
     <pre>
 ### NOTE: Default system clock (this is normal)
@@ -126,35 +127,35 @@ Message is now -43182639.2505 ms old
 
     <h3>Possible Solutions</h3>
 
-    <p>The first option for solving drift between a sender and receiver is to no longer rely on timestamps from the sender. In this model, the client only sends the TTL duration, and the receiver stamps the message on arrival. Then, this can be compared to the current time on the receiver and, if beyond the TTL duration, the message can be expired. This allows us to move the "IsExpired" check inside the message itself, as shown below:</p>
+    <p>The first option for solving drift between a sender and receiver is to simply no longer rely on timestamps from the sender. In this model, the client only sends the TTL duration, and the receiver stamps the message on arrival. Then, this can be compared to the current time on the receiver and, if beyond the TTL duration, the message can be expired. This allows us to move the "IsExpired" check inside the message itself, as shown below:</p>
 
     <pre>
 class ExampleMessage
 {
     TimeSpan TtlDuration { get; set; }
-    DateTime MessageReceived { get; set; }
+    DateTime MessageReceivedUtc { get; set; }
     byte[] Data { get; set; }
 
     IsExpired {
         get { 
-            return ((DateTime.UtcNow - MessageReceived) > TtlDuration);
+            return ((DateTime.UtcNow - MessageReceivedUtc) > TtlDuration);
         }
     }
 }
     </pre>
 
-    <p>This is exactly the solution the Orleans team chose to use to address their issues. Note, however, that clock drift during the checking interval can still yield incorrect results, but we are no longer relient on synchronization between machines.</p>
+    <p>This is a variation of the solution the Orleans team chose to use to address their issues. Note, however, that clock drift during processing can still yield incorrect results, but we are no longer relying on synchronization between machines.</p>
 
-    <p>Another approach is to make the sender an active participant in expiring / removing work that it deems expired. This is built on the notion that clients are also part of any distributed system. Here, we would implement a second message channel (essentially a priority queue) for senders to notify receivers that an inbound message should not be processed, as shown below:</p>
+    <p>Another approach is to make the sender an active participant in expiring / removing work that it deems expired. This is built on the notion that clients are also part of any distributed system. Here, we would implement a second message channel (essentially a priority queue) for senders to notify receivers that an previously sent message should not be processed, as shown below:</p>
 
     <p class="center"><img src="/media/TODO.png" alt="TODO Exchange" /></p>
 
-    <p>This implementation relies on the client remaining active during the processing period, so this won't be suitable for scenarios where clients may disconnect (or be killed) after sending messages. However it does enable the client cancelling messages for other business-logic related reasons (not just TTL expiration).</p>
+    <p>This implementation relies on the client remaining active during the processing period, so this won't be suitable for scenarios where clients may disconnect (or be killed) after sending messages. However it does enable the client cancelling messages for other business-logic related reasons (beyond TTL expiration).</p>
 
-    <p>Finally, you could use brokered messaging platform, such as <a href="https://docs.microsoft.com/en-us/azure/service-bus-messaging/" title="Azure Service Bus">Azure Service Bus</a>. This really doesn't "solve" the problem, but it some cases may offload the handling of message lifetimes to the broker, removing complexity from your application. Note however, that for brokers that offer partitioned receivers, there may still be drift between individual listeners as there are no gaurantees on time sync between the independent resources handling the partitions. An overview of configuring Time-To-Live on a BrokeredMessage is covered <a href="https://docs.microsoft.com/en-us/dotnet/api/microsoft.servicebus.messaging.brokeredmessage.timetolive?view=azureservicebus-4.1.1">here</a>.</p>
+    <p>Finally, you can use a brokered messaging platform, such as <a href="https://docs.microsoft.com/en-us/azure/service-bus-messaging/" title="Azure Service Bus">Azure Service Bus</a>. This really doesn't "solve" the problem, but it some cases may offload the handling of message lifetimes to the broker, removing complexity from your application. Note however, that for brokers that enable partitioned receivers, there may still be drift between individual receivers as there are no gaurantees on time sync between the independent resources handling the partitions.</p>
     
     <h3>Conclusions</h3>
 
-    <p>As we've shown above, time synchronization is fundamental to many implicit behaviors we have come to rely on. This is especially important when we start exchanging messages with other computers (and some we don't directly control), or even client devices such as tablets and phones. As you're designing your messaging strategy, be sure to think about the impacts of clock drift, and make sure you application is able to handle the various types of oddities that can result.</p>
+    <p>As we've shown above, time synchronization is fundamental to many implicit behaviors we have come to rely on. This is especially important when we start exchanging messages with other computers, including those we don't directly control (such as smartphones, tables, and IoT edge devices). When designing an application messaging strategy, be sure to consider the impacts of clock drift, and make sure you application is able to handle the various types of oddities that can result.</p>
 
 </div>
