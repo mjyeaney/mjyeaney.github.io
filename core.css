@@ -25,14 +25,12 @@ blockquote {
 }
 #header { 
     height: 15em; 
-    background-color: #012; 
+    background-color: #1a3a7a; 
     color: #fff; 
     border-bottom: 1px solid #a0a0a0; 
     background-size: 100%;
-    box-shadow: 0px 5px 10px #888; 
     margin-bottom: 2em;
     position: relative;
-    background: linear-gradient(#222, #1a3a7a);
 }
 #header .wrapper h3 { 
     display: inline-block;
@@ -144,7 +142,7 @@ p.center img { cursor: pointer; }
 @media (max-width: 480px){
     #header .wrapper ul {
         position: absolute; 
-        top: 2.65em;
+        top: 2.6em;
         left: 0;
         right: 0;
         background-color: #1a3a7a;
