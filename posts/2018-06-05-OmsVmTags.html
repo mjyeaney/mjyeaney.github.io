@@ -17,17 +17,105 @@
 
     <p>The heart of the Logic Apps workflow is a schedule-driven trigger that lists all Azure resources every 15 minutes. This is straightforward, and makes up the first 2 steps of our workflow:</p>
 
+    <p class="center"><img src="/media/OmsVmTags-1.png" alt="Logic Apps Schedule Trigger" /></p>
+
     <p>Next, we’ll iterate over each of these resources and look for resources that are virtual machines. Note that (by default) For-Each loops in Logic Apps run in parallel, so we are getting some extra efficiency goodness by letting the platform manage and schedule this work for us. </p>
+
+    <p class="center"><img src="/media/OmsVmTags-2.png" alt="Logic Apps For-Each Loop" /></p>
 
     <p>Note that we’re simply filtering on the resource type of “Microsoft.Compute/virtualMachines” to make sure we’re only working with VM’s; you could change this to look for any resource needed.</p>
 
     <p>Finally, we’ll call an Azure Function to help us insert this data into OMS leveraging the HTTP Data Collector API. Calling an Azure Function from Logic Apps is straightforward, and only requires us to specify the payload we want to send.</p>
+
+    <p class="center"><img src="/media/OmsVmTags-3.png" alt="Logic Apps Function Action" /></p>
 
     <p>In this case, I’m simply grabbing the “Tag” JSON from the resource description. However, note that I’m adding a runtime property named “VmName” to this structure so that OMS know what VM these tags belong to. While this expression may look a bit tedious, this is straightforward to setup in Logic Apps using the Expression editor.</p>
 
     <h3>Function App</h3>
 
     <p>The Function app handles the single task of inserting a JSON payload into OMS. This requires some standard code to build up a HMAC signature in order to correctly authenticate our POST call to insert data. The full code for the function is listed below:</p>
+
+    <pre>
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
+
+// Update customerId to your Log Analytics workspace ID
+static string customerId = "--workspace ID--";
+
+// For sharedKey, use either the primary or the secondary Connected Sources client authentication key   
+static string sharedKey = "-- Primary or Secondary Key--";
+
+// LogName is name of the event type that is being submitted to Log Analytics
+static string LogName = "CustomTagData";
+
+public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log)
+{
+    log.Info("Starting OMS proxy execution...");
+
+    // Create a hash for the API signature
+    var datestring = DateTime.UtcNow.ToString("r");
+    var rawPayload = await req.Content.ReadAsStringAsync();
+
+    log.Info("Raw payload: " + rawPayload);
+
+    var jsonBytes = Encoding.UTF8.GetBytes(rawPayload);
+
+    log.Info("Payload length: " + jsonBytes.Length.ToString());
+
+    string stringToHash = "POST\n" + jsonBytes.Length + "\napplication/json\n" + "x-ms-date:" + datestring + "\n/api/logs";
+    string hashedString = BuildSignature(stringToHash, sharedKey);
+    string signature = "SharedKey " + customerId + ":" + hashedString;
+
+    PostData(signature, datestring, rawPayload, log);
+
+    return req.CreateResponse(HttpStatusCode.OK, "Successful");
+}
+
+// Build the API signature
+public static string BuildSignature(string message, string secret)
+{
+    var encoding = new System.Text.ASCIIEncoding();
+    byte[] keyByte = Convert.FromBase64String(secret);
+    byte[] messageBytes = encoding.GetBytes(message);
+    using (var hmacsha256 = new HMACSHA256(keyByte))
+    {
+        byte[] hash = hmacsha256.ComputeHash(messageBytes);
+        return Convert.ToBase64String(hash);
+    }
+}
+
+// Send a request to the POST API endpoint
+public static void PostData(string signature, string date, string json, TraceWriter log)
+{
+    try
+    {
+        string url = "https://" + customerId + ".ods.opinsights.azure.com/api/logs?api-version=2016-04-01";
+
+        System.Net.Http.HttpClient client = new System.Net.Http.HttpClient();
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
+        client.DefaultRequestHeaders.Add("Log-Type", LogName);
+        client.DefaultRequestHeaders.Add("Authorization", signature);
+        client.DefaultRequestHeaders.Add("x-ms-date", date);
+
+        System.Net.Http.HttpContent httpContent = new StringContent(json, Encoding.UTF8);
+        httpContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        Task<System.Net.Http.HttpResponseMessage> response = client.PostAsync(new Uri(url), httpContent);
+
+        System.Net.Http.HttpContent responseContent = response.Result.Content;
+        string result = responseContent.ReadAsStringAsync().Result;
+        log.Info("Return Result: " + result);
+    }
+    catch (Exception excep)
+    {
+        log.Info("API Post Exception: " + excep.Message);
+    }
+}        
+    </pre>
 
     <h3>Log Analytics Queries</h3>
 
