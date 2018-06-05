@@ -31,13 +31,13 @@
     <h2 class="title">Query Azure VM Tags from Log Analytics</h2>
     <div class="authorInfo">Michael Yeaney <span class="dateText">June 5, 2018</span></div>
 
-    <p class="teaser">A common issue I encounter when working with teams is how to expose Azure Resource Manager tag values in Log Analytics queries.  While this feature isn’t available natively in Log Analytics at the moment, we can leverage Azure serverless offerings (including Logic Apps and Functions) to pull this data into your Log Analytics workspaces.  This data can then be used to create tag-driven alerts or augment queries with tag information that may have been previously unavailable.</p>
+    <p class="teaser">A common issue I encounter when working with customers is how to best expose Azure Resource Manager tag values in Log Analytics queries.  While this feature isn’t available natively in Log Analytics at the moment, we can leverage Azure serverless offerings (including Logic Apps and Functions) to pull this data into your Log Analytics workspaces.  This data can then be used to create tag-driven alerts or augment queries with tag information that may have been previously unavailable.</p>
 
     <p>In the following example, I'll show you how to pull tag data for virtual machines, but this approach can be easily modified to support any type of Azure resource needed.</p>
 
     <h3>Solution Design</h3>
 
-    <p>The basic outline of the solution is shown below. Here we are using a Logic App to poll and pull Azure resources every 15 minutes, extracting tag information and inserting this data into OMS using the <a href="https://docs.microsoft.com/en-us/azure/log-analytics/log-analytics-data-collector-api" title="OMS HTTP Data Collector API">HTTP Data Collector API</a>.</p>
+    <p>The basic outline of the solution is shown below. We'll be using a Logic App to poll and pull Azure resources every 15 minutes, extracting tag information and inserting this data into OMS using the <a href="https://docs.microsoft.com/en-us/azure/log-analytics/log-analytics-data-collector-api" title="OMS HTTP Data Collector API">HTTP Data Collector API</a>.</p>
 
     <p class="center"><img src="/media/OmsVmTags-0.png" alt="Solution Overview" /></p>
 
@@ -51,21 +51,21 @@
 
     <p class="center"><img src="/media/OmsVmTags-1.png" alt="Logic Apps Schedule Trigger" /></p>
 
-    <p>Next, we’ll iterate over each of these resources and look for resources that are virtual machines. Note that (by default) For-Each loops in Logic Apps run in parallel, so we are getting some extra efficiency goodness by letting the platform manage and schedule this work for us. This is a huge benefit when you start comparing the effort to create this type of execution environment on your own.</p>
+    <p>Next, we’ll iterate over each of these resources and look for resources that are virtual machines. Note that (by default) For-Each loops in Logic Apps run <em>in parallel</em>, so we are getting some extra efficiency goodness by letting the platform manage and schedule this work for us. This is a huge benefit when you start comparing the effort to create this type of execution environment on your own.</p>
 
     <p class="center"><img src="/media/OmsVmTags-2.png" alt="Logic Apps For-Each Loop" /></p>
 
-    <p>Here we’re simply filtering on the resource type of "<span class="inlineCode">Microsoft.Compute/virtualMachines</span>" to make sure we’re only working with virtual machines; you could change this to look for any resource type needed.</p>
+    <p>Note the filter on resource type of "<span class="inlineCode">Microsoft.Compute/virtualMachines</span>" to make sure we’re only working with virtual machines; you could change this to look for any resource type needed.</p>
 
     <p>Finally, we’ll call an Azure Function to help us insert this data into OMS leveraging the HTTP Data Collector API. Calling an Azure Function from Logic Apps is natively supported, and only requires us to specify the payload we want to send:</p>
 
     <p class="center"><img src="/media/OmsVmTags-3.png" alt="Logic Apps Function Action" /></p>
 
-    <p>In this case, I’m simply grabbing the "<span class="inlineCode">Tag</span>" JSON from the resource manager description. However, note that I’m adding a runtime property named “VmName” to this structure so that OMS knows what VM these tags belong to. While this expression may look a bit tedious, this is simple to setup in Logic Apps using the Expression editor.</p>
+    <p>In this case, I’m simply grabbing the "<span class="inlineCode">Tag</span>" JSON from the resource manager description. However, note that I’m adding a runtime property named "<span class="inlineCode">VmName</span>" to this structure so that OMS knows what VM these tags belong to. While this expression may look a bit tedious, this is simple to setup in Logic Apps using the Expression editor.</p>
 
     <h3>Function App</h3>
 
-    <p>Azure Functions are the perfect partner to Logic Apps for custom extensibility points that require code or other custom logic that isn't possible within Logic Apps. In this case, the Function app handles the single task of inserting a JSON payload into OMS. This requires some standard code to build up a HMAC signature in order to correctly authenticate our POST call to insert data. The full code for the function is listed below:</p>
+    <p>Azure Functions are the perfect partner to Logic Apps for custom extensibility points that require code or other logic that isn't possible within Logic Apps. In this case, the Function app handles the single task of inserting a JSON payload into OMS. This requires some standard code to build up a HMAC signature in order to correctly authenticate our POST call to insert data. The full code for the function is listed below:</p>
 
     <pre><code class="c#">
 using System;
@@ -92,19 +92,15 @@ public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceW
     // Create a hash for the API signature
     var datestring = DateTime.UtcNow.ToString("r");
     var rawPayload = await req.Content.ReadAsStringAsync();
-
-    log.Info("Raw payload: " + rawPayload);
-
     var jsonBytes = Encoding.UTF8.GetBytes(rawPayload);
+    var stringToHash = "POST\n" + jsonBytes.Length + "\napplication/json\n" + "x-ms-date:" + datestring + "\n/api/logs";
+    var hashedString = BuildSignature(stringToHash, sharedKey);
+    var signature = "SharedKey " + customerId + ":" + hashedString;
 
-    log.Info("Payload length: " + jsonBytes.Length.ToString());
-
-    string stringToHash = "POST\n" + jsonBytes.Length + "\napplication/json\n" + "x-ms-date:" + datestring + "\n/api/logs";
-    string hashedString = BuildSignature(stringToHash, sharedKey);
-    string signature = "SharedKey " + customerId + ":" + hashedString;
-
+    // Insert data in OMS
     PostData(signature, datestring, rawPayload, log);
 
+    // Indicate success
     return req.CreateResponse(HttpStatusCode.OK, "Successful");
 }
 
@@ -126,20 +122,19 @@ public static void PostData(string signature, string date, string json, TraceWri
 {
     try
     {
-        string url = "https://" + customerId + ".ods.opinsights.azure.com/api/logs?api-version=2016-04-01";
-
-        System.Net.Http.HttpClient client = new System.Net.Http.HttpClient();
+        var url = "https://" + customerId + ".ods.opinsights.azure.com/api/logs?api-version=2016-04-01";
+        var client = new System.Net.Http.HttpClient();
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.DefaultRequestHeaders.Add("Log-Type", LogName);
         client.DefaultRequestHeaders.Add("Authorization", signature);
         client.DefaultRequestHeaders.Add("x-ms-date", date);
 
-        System.Net.Http.HttpContent httpContent = new StringContent(json, Encoding.UTF8);
+        var httpContent = new StringContent(json, Encoding.UTF8);
         httpContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         Task<System.Net.Http.HttpResponseMessage> response = client.PostAsync(new Uri(url), httpContent);
 
-        System.Net.Http.HttpContent responseContent = response.Result.Content;
-        string result = responseContent.ReadAsStringAsync().Result;
+        var responseContent = response.Result.Content;
+        var result = responseContent.ReadAsStringAsync().Result;
         log.Info("Return Result: " + result);
     }
     catch (Exception excep)
@@ -149,9 +144,11 @@ public static void PostData(string signature, string date, string json, TraceWri
 }        
     </code></pre>
 
+    <p>Note this code is only for a proof-of-concept, and should be modified/hardened as appropriate for your specific environment.</p>
+
     <h3>Log Analytics Queries</h3>
 
-    <p>Now that we have the data in Log Analytics, we are ready to query it and make use of it. As we can see from the above apps, we are capturing every tag value along with the VM name associated with the tags, every 15 minutes. Noting the special naming that Log Analytics uses for custom data collection (notably, appending “_CL” after the table name), we can query for the most recent tag values for each VM using the following query syntax:</p>
+    <p>Now that we have the data in Log Analytics, we are ready to query it and make use of it. As we can see from the above code, we are capturing every tag value along with the VM name associated with the tags, every 15 minutes. Noting the special naming that Log Analytics uses for custom data collection (notably, appending “_CL” after the table name), we can query for the most recent tag values for each VM using the following query syntax:</p>
 
     <p class="center"><img src="/media/OmsVmTags-4.png" alt="Log Analytics sample query" /></p>
 
@@ -159,6 +156,9 @@ public static void PostData(string signature, string date, string json, TraceWri
 
     <p class="center"><img src="/media/OmsVmTags-5.png" alt="Log Analytics sample query" /></p>
 
+    <h3>Wrapping Up</h3>
+
+    <p>In this simple example, we've seen how to leverage Azure Logic Apps and Functions to build a robust, scalable data ingestion pipeline that could easily be modified to work for all sorts of data. Additionally, this is also an excellent use of platform services to bolster your operational efficiency, while gaining all the benefits of a fully managed platform. I'll be covering some more use-cases in upcoming posts - but would love to hear what you've built in the meantime. Comment below or ping me on Twitter - looking forward to the discussion!</p>
 </div><div id="disqus_thread"></div>
 <script>
 (function() {
