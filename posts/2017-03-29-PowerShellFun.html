@@ -9,7 +9,7 @@
         
     <p>Here's the basic script I came up with:</p> 
 
-    <pre>
+    <pre><code class="powershell">
 function Get-ChildItemSizes(){
     ls | % -Begin { $results = @() } -Process {
         $size = ls $_ -Recurse | 
@@ -21,7 +21,7 @@ function Get-ChildItemSizes(){
         $results += $thisOne
     } -End { Write-Output $results }
 }
-    </pre>
+    </code></pre>
 
     <p>This gives is the following sample output result set: </p>
 

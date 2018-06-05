@@ -9,6 +9,7 @@
         <link href="//fonts.googleapis.com/css?family=Open+Sans:400,300,600" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" href="/core.css?ver=1.37" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico?ver=1.37" />
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" />
     </head>
     <body>
         <div id="header">
@@ -42,17 +43,17 @@
 
     <p>If we consider what such a message may look like, we can imagine a set of fields similar to the following:</p>
 
-    <pre>
+    <pre><code class="c#">
 class ExampleMessage
 {
     DateTime TimeSentUtc { get; set; }
     byte[] Data { get; set; }
 }
-    </pre>
+    </code></pre>
 
     <p>Here, we can see the message contains an opaque piece of data (the <span class="inlineCode">byte[]</span> property), and a timestamp indicating when the message was sent. We can also imagine the receiver logic to correctly process this message, based off of our business requirement to not process a message that is older than 5 mintes:</p>
 
-    <pre>
+    <pre><code class="c#">
 // ...
 if ((DateTime.UtcNow - nextMsg.TimeSentUtc) > TimeSpan.FromMinues(5)){
     // Ignore message - it's expired
@@ -60,7 +61,7 @@ if ((DateTime.UtcNow - nextMsg.TimeSentUtc) > TimeSpan.FromMinues(5)){
     // Read + process message
 }
 // ...
-    </pre>
+    </code></pre>
 
     <p>Seems fairly straightforward, but if we take a step back we can see that this simple design has a some troublesome built-in requirements. First, the code assumes that <em>both machines have nearly perfrect time synchronization</em>, demonstrated by comparing timestamps that originated on different machines. Secondly, we're assuming that time only moves forward by positioning the <span class="inlineCode">nextMsg.TimeSent</span> as numerically less-than <span class="inlineCode">DateTime.UtcNow</span>. While these may seem reasonable, lets see how these assumptions can break down.</p>
 
@@ -89,7 +90,7 @@ if ((DateTime.UtcNow - nextMsg.TimeSentUtc) > TimeSpan.FromMinues(5)){
 
     <p>To visualize these issues, let's utilize a fairly simple test program (C# example shown below). This program will continuously measure how "old" a message timestamp is (every second), and compare it to the system clock; if the message timestamp is beyond the example threshold, the program will print 'EXPIRED':</p>
 
-    <pre>
+    <pre><code class="c#">
 static void Main(string[] args)
 {
     var messageTimeStamp = DateTime.UtcNow;
@@ -110,7 +111,7 @@ static void Main(string[] args)
 
     Console.ReadLine();
 }
-    </pre>
+    </code></pre>
 
     <p>While this program is running, we'll make adjustments to the system to clock to demonstrate the issues that can occur. We're going to amplify the effects by moving the clock by hours each time, but note these same issues will also occur on much smaller timescales (minutes, seconds, or even milliseconds). With these parameters in mind, here is an example trace while the system clock is being adjusted:</p>
 
@@ -156,7 +157,7 @@ Message is now -43182639.2505 ms old
 
     <p>The first option for solving drift between a sender and receiver is to simply no longer rely on timestamps from the sender. In this model, the client only sends the TTL duration, and the receiver stamps the message on arrival. Then, this can be compared to the current time on the receiver and, if beyond the TTL duration, the message can be expired. This allows us to move the "IsExpired" check inside the message itself, as shown below:</p>
 
-    <pre>
+    <pre><code class="c#">
 class ExampleMessage
 {
     TimeSpan TtlDuration { get; set; }
@@ -169,7 +170,7 @@ class ExampleMessage
         }
     }
 }
-    </pre>
+    </code></pre>
 
     <p>This is a simplification of the <a href="https://github.com/dotnet/orleans/pull/2922" title="Orleas Issue #2933">solution the Orleans team chose to use</a> to address their issues. Note, however, that clock drift during processing can still yield incorrect results; but we are no longer relying on synchronization between machines.</p>
 
@@ -223,6 +224,8 @@ s.setAttribute('data-timestamp', +new Date());
         
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
         <script src="/common.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
         <script>
           (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
           (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -231,7 +234,6 @@ s.setAttribute('data-timestamp', +new Date());
 
           ga('create', 'UA-51915288-1', 'mjyeaney.github.io');
           ga('send', 'pageview');
-
         </script>
     </body>
 </html>

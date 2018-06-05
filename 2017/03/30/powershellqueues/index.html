@@ -9,6 +9,7 @@
         <link href="//fonts.googleapis.com/css?family=Open+Sans:400,300,600" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" href="/core.css?ver=1.37" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico?ver=1.37" />
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" />
     </head>
     <body>
         <div id="header">
@@ -68,7 +69,7 @@
         messages as the are received.</p>
     </p>
 
-    <pre>
+    <pre><code class="powershell">
 <#
 
 DISCLAIMER: THIS SCRIPT IS OFFERED "AS IS" WITH NO WARRANTY. IT IS RECOMMENDED THAT YOU  
@@ -130,14 +131,14 @@ for ($i = 0; $i -lt 25; $i++){
     Write-Host "Sent message $i..."
 }
 LogMsg "Message send complete!"
-    </pre>
+    </code></pre>
 
     <p>On the receiving end, we see a very similar pattern: a while-loop that reads messages from the queue, or 
         optionally sleeps for a bit if there are no messages available. However, notice in this case we have a simple exponential 
         backoff built in to progressively sleep longer intervals when no messages are available. This avoids endless polling of the queue, 
         and keeps the storage transactions to a minimum (note with Azure storage, you are charged for transactions).</p>
 
-    <pre>
+    <pre><code class="powershell">
 <#
 
 DISCLAIMER: THIS SCRIPT IS OFFERED "AS IS" WITH NO WARRANTY. IT IS RECOMMENDED THAT YOU  
@@ -206,7 +207,7 @@ while ($true){
         LogMsg "Sleep interval now: $sleepTime"
     }
 }
-    </pre>
+    </code></pre>
 
     <h3>Putting it together</h3>
 
@@ -262,6 +263,8 @@ s.setAttribute('data-timestamp', +new Date());
         
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
         <script src="/common.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
         <script>
           (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
           (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -270,7 +273,6 @@ s.setAttribute('data-timestamp', +new Date());
 
           ga('create', 'UA-51915288-1', 'mjyeaney.github.io');
           ga('send', 'pageview');
-
         </script>
     </body>
 </html>

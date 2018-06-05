@@ -9,6 +9,7 @@
         <link href="//fonts.googleapis.com/css?family=Open+Sans:400,300,600" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" href="/core.css?ver=1.37" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico?ver=1.37" />
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" />
     </head>
     <body>
         <div id="header">
@@ -26,8 +27,8 @@
             <div class="wrapper">
                 <div class="leftCol">
 <div class="post frontPage">
-                        <h2><a href="2018/06/05/omsvmtags/" title="Read more">Querying Azure VM Tags through Log Analytics</a></h2>
-                        <p>A common issue encountered when working with teams is how to expose Azure Resource Manager tag values in Log Analytics queries?  While this feature isn&#x2019;t quite available yet, I&#x2019;ll show you how to leverage serverless offerings (including Logic Apps and Functions) to pull this data into your queries.  This data can then be used to create tag-driven alerts or augment queries with tag information that may have been previously unavailable.</p>
+                        <h2><a href="2018/06/05/omsvmtags/" title="Read more">Query Azure VM Tags from Log Analytics</a></h2>
+                        <p>A common issue I encounter when working with teams is how to expose Azure Resource Manager tag values in Log Analytics queries.  While this feature isn&#x2019;t available natively in Log Analytics at the moment, we can leverage Azure serverless offerings (including Logic Apps and Functions) to pull this data into your Log Analytics workspaces.  This data can then be used to create tag-driven alerts or augment queries with tag information that may have been previously unavailable.</p>
                         <div class="authorInfo">Michael Yeaney <span class="dateText">June 5, 2018</span></div>
                     </div><div class="post frontPage">
                         <h2><a href="2017/08/14/messagelifetimesfaultyclocks/" title="Read more">Message Lifetimes and Faulty Clocks</a></h2>
@@ -78,6 +79,8 @@
         
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
         <script src="/common.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
         <script>
           (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
           (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -86,7 +89,6 @@
 
           ga('create', 'UA-51915288-1', 'mjyeaney.github.io');
           ga('send', 'pageview');
-
         </script>
     </body>
 </html>

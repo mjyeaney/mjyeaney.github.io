@@ -5,10 +5,11 @@
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="viewport" content="width=device-width, user-scalable=no">
-        <title>Querying Azure VM Tags through Log Analytics - Michael Yeaney - Blog</title>
+        <title>Query Azure VM Tags from Log Analytics - Michael Yeaney - Blog</title>
         <link href="//fonts.googleapis.com/css?family=Open+Sans:400,300,600" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" href="/core.css?ver=1.37" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico?ver=1.37" />
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" />
     </head>
     <body>
         <div id="header">
@@ -27,42 +28,46 @@
                 <div class="leftCol">
 <div class="post" data-tags="Azure,OMS,LogAnalytics,Logic Apps,Functions" data-date="2018-06-05">
 
-    <h2 class="title">Querying Azure VM Tags through Log Analytics</h2>
+    <h2 class="title">Query Azure VM Tags from Log Analytics</h2>
     <div class="authorInfo">Michael Yeaney <span class="dateText">June 5, 2018</span></div>
 
-    <p class="teaser">A common issue encountered when working with teams is how to expose Azure Resource Manager tag values in Log Analytics queries?  While this feature isn’t quite available yet, I’ll show you how to leverage serverless offerings (including Logic Apps and Functions) to pull this data into your queries.  This data can then be used to create tag-driven alerts or augment queries with tag information that may have been previously unavailable.</p>
+    <p class="teaser">A common issue I encounter when working with teams is how to expose Azure Resource Manager tag values in Log Analytics queries.  While this feature isn’t available natively in Log Analytics at the moment, we can leverage Azure serverless offerings (including Logic Apps and Functions) to pull this data into your Log Analytics workspaces.  This data can then be used to create tag-driven alerts or augment queries with tag information that may have been previously unavailable.</p>
 
-    <p>In the following example, we’ll be pulling tags for virtual machines only, but this approach can be easily modified to support any type of Azure resource needed.</p>
+    <p>In the following example, I'll show you how to pull tag data for virtual machines, but this approach can be easily modified to support any type of Azure resource needed.</p>
 
     <h3>Solution Design</h3>
 
-    <p>The basic outline of the solution is shown below. Here we are using a Logic App to poll and pull Azure resources every 15 minutes, extracting tag information and inserting this data into OMS using the HTTP Data Collector API.</p>
+    <p>The basic outline of the solution is shown below. Here we are using a Logic App to poll and pull Azure resources every 15 minutes, extracting tag information and inserting this data into OMS using the <a href="https://docs.microsoft.com/en-us/azure/log-analytics/log-analytics-data-collector-api" title="OMS HTTP Data Collector API">HTTP Data Collector API</a>.</p>
 
-    <p>Let’s now break down each piece of this architecture and see what’s involved in created your own serverless solution.</p>
+    <p class="center"><img src="/media/OmsVmTags-0.png" alt="Solution Overview" /></p>
+
+    <p>In the following sections, we'll break down each piece of this architecture and see what’s involved in creating this type of solution.</p>
 
     <h3>Logic App</h3>
 
-    <p>The heart of the Logic Apps workflow is a schedule-driven trigger that lists all Azure resources every 15 minutes. This is straightforward, and makes up the first 2 steps of our workflow:</p>
+    <p>The core of our orchestration logic leverages a Logic App that handles reading information from Azure resources, determining if they are the correct type, and finally making calls to insert this data (via Azure Function, discussed below). Logic Apps are perfect for this type of work as they allow you focus on the core logic instead of debugging / testing integration points in your code. More details on Logic Apps can be found <a href="https://docs.microsoft.com/en-us/azure/logic-apps/logic-apps-overview" title="Logic Apps Overview">here</a>.</p>
+
+    <p>For this sample, the heart of the Logic Apps workflow is a schedule-driven trigger that lists all Azure resources every 15 minutes. This is straightforward, and makes up the first 2 steps of our workflow:</p>
 
     <p class="center"><img src="/media/OmsVmTags-1.png" alt="Logic Apps Schedule Trigger" /></p>
 
-    <p>Next, we’ll iterate over each of these resources and look for resources that are virtual machines. Note that (by default) For-Each loops in Logic Apps run in parallel, so we are getting some extra efficiency goodness by letting the platform manage and schedule this work for us. </p>
+    <p>Next, we’ll iterate over each of these resources and look for resources that are virtual machines. Note that (by default) For-Each loops in Logic Apps run in parallel, so we are getting some extra efficiency goodness by letting the platform manage and schedule this work for us. This is a huge benefit when you start comparing the effort to create this type of execution environment on your own.</p>
 
     <p class="center"><img src="/media/OmsVmTags-2.png" alt="Logic Apps For-Each Loop" /></p>
 
-    <p>Note that we’re simply filtering on the resource type of “Microsoft.Compute/virtualMachines” to make sure we’re only working with VM’s; you could change this to look for any resource needed.</p>
+    <p>Here we’re simply filtering on the resource type of "<span class="inlineCode">Microsoft.Compute/virtualMachines</span>" to make sure we’re only working with virtual machines; you could change this to look for any resource type needed.</p>
 
-    <p>Finally, we’ll call an Azure Function to help us insert this data into OMS leveraging the HTTP Data Collector API. Calling an Azure Function from Logic Apps is straightforward, and only requires us to specify the payload we want to send.</p>
+    <p>Finally, we’ll call an Azure Function to help us insert this data into OMS leveraging the HTTP Data Collector API. Calling an Azure Function from Logic Apps is natively supported, and only requires us to specify the payload we want to send:</p>
 
     <p class="center"><img src="/media/OmsVmTags-3.png" alt="Logic Apps Function Action" /></p>
 
-    <p>In this case, I’m simply grabbing the “Tag” JSON from the resource description. However, note that I’m adding a runtime property named “VmName” to this structure so that OMS know what VM these tags belong to. While this expression may look a bit tedious, this is straightforward to setup in Logic Apps using the Expression editor.</p>
+    <p>In this case, I’m simply grabbing the "<span class="inlineCode">Tag</span>" JSON from the resource manager description. However, note that I’m adding a runtime property named “VmName” to this structure so that OMS knows what VM these tags belong to. While this expression may look a bit tedious, this is simple to setup in Logic Apps using the Expression editor.</p>
 
     <h3>Function App</h3>
 
-    <p>The Function app handles the single task of inserting a JSON payload into OMS. This requires some standard code to build up a HMAC signature in order to correctly authenticate our POST call to insert data. The full code for the function is listed below:</p>
+    <p>Azure Functions are the perfect partner to Logic Apps for custom extensibility points that require code or other custom logic that isn't possible within Logic Apps. In this case, the Function app handles the single task of inserting a JSON payload into OMS. This requires some standard code to build up a HMAC signature in order to correctly authenticate our POST call to insert data. The full code for the function is listed below:</p>
 
-    <pre>
+    <pre><code class="c#">
 using System;
 using System.Net;
 using System.Net.Http;
@@ -142,13 +147,18 @@ public static void PostData(string signature, string date, string json, TraceWri
         log.Info("API Post Exception: " + excep.Message);
     }
 }        
-    </pre>
+    </code></pre>
 
     <h3>Log Analytics Queries</h3>
 
-    <p>Now that we have the data in Log Analytics, we are ready to query it and make use of it. As we can see from the above apps, we are capturing every tag value along with the VM name associated with the tags. Noting the special naming that Log Analytics uses for custom data collection (notably, appending “_CL” after the table name), we can query for the most recent tag values for each VM using the following query syntax:</p>
+    <p>Now that we have the data in Log Analytics, we are ready to query it and make use of it. As we can see from the above apps, we are capturing every tag value along with the VM name associated with the tags, every 15 minutes. Noting the special naming that Log Analytics uses for custom data collection (notably, appending “_CL” after the table name), we can query for the most recent tag values for each VM using the following query syntax:</p>
 
-    <p>In this query, we are specifically looking for all “Cost Center” tags, and viewing them for each recorded VM. The result table looks like the following example:</p>
+    <p class="center"><img src="/media/OmsVmTags-4.png" alt="Log Analytics sample query" /></p>
+
+    <p>Why do we need to look for the latest value? Since we are logging tag values every 15 minutes, we're only really interested in the latest values - sorting by the TimeGenerated column gives us the latest set of data recorded (otherwise we would end up with duplicates). Using this data, we can now build a reference table that can be used to drive alers / etc. from with your Log Analytics queries - and example of this reference table output is shown below:</p>
+
+    <p class="center"><img src="/media/OmsVmTags-5.png" alt="Log Analytics sample query" /></p>
+
 </div><div id="disqus_thread"></div>
 <script>
 (function() {
@@ -187,6 +197,8 @@ s.setAttribute('data-timestamp', +new Date());
         
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
         <script src="/common.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
         <script>
           (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
           (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -195,7 +207,6 @@ s.setAttribute('data-timestamp', +new Date());
 
           ga('create', 'UA-51915288-1', 'mjyeaney.github.io');
           ga('send', 'pageview');
-
         </script>
     </body>
 </html>

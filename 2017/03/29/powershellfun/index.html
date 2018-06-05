@@ -9,6 +9,7 @@
         <link href="//fonts.googleapis.com/css?family=Open+Sans:400,300,600" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" href="/core.css?ver=1.37" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico?ver=1.37" />
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" />
     </head>
     <body>
         <div id="header">
@@ -36,7 +37,7 @@
         
     <p>Here's the basic script I came up with:</p> 
 
-    <pre>
+    <pre><code class="powershell">
 function Get-ChildItemSizes(){
     ls | % -Begin { $results = @() } -Process {
         $size = ls $_ -Recurse | 
@@ -48,7 +49,7 @@ function Get-ChildItemSizes(){
         $results += $thisOne
     } -End { Write-Output $results }
 }
-    </pre>
+    </code></pre>
 
     <p>This gives is the following sample output result set: </p>
 
@@ -129,6 +130,8 @@ s.setAttribute('data-timestamp', +new Date());
         
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
         <script src="/common.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
         <script>
           (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
           (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -137,7 +140,6 @@ s.setAttribute('data-timestamp', +new Date());
 
           ga('create', 'UA-51915288-1', 'mjyeaney.github.io');
           ga('send', 'pageview');
-
         </script>
     </body>
 </html>

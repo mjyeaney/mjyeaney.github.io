@@ -41,7 +41,7 @@
         messages as the are received.</p>
     </p>
 
-    <pre>
+    <pre><code class="powershell">
 <#
 
 DISCLAIMER: THIS SCRIPT IS OFFERED "AS IS" WITH NO WARRANTY. IT IS RECOMMENDED THAT YOU  
@@ -103,14 +103,14 @@ for ($i = 0; $i -lt 25; $i++){
     Write-Host "Sent message $i..."
 }
 LogMsg "Message send complete!"
-    </pre>
+    </code></pre>
 
     <p>On the receiving end, we see a very similar pattern: a while-loop that reads messages from the queue, or 
         optionally sleeps for a bit if there are no messages available. However, notice in this case we have a simple exponential 
         backoff built in to progressively sleep longer intervals when no messages are available. This avoids endless polling of the queue, 
         and keeps the storage transactions to a minimum (note with Azure storage, you are charged for transactions).</p>
 
-    <pre>
+    <pre><code class="powershell">
 <#
 
 DISCLAIMER: THIS SCRIPT IS OFFERED "AS IS" WITH NO WARRANTY. IT IS RECOMMENDED THAT YOU  
@@ -179,7 +179,7 @@ while ($true){
         LogMsg "Sleep interval now: $sleepTime"
     }
 }
-    </pre>
+    </code></pre>
 
     <h3>Putting it together</h3>
 
