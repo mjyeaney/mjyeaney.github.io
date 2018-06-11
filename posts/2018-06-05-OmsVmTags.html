@@ -29,7 +29,7 @@
 
     <p>Note the filter on resource type of "<span class="inlineCode">Microsoft.Compute/virtualMachines</span>" to make sure we’re only working with virtual machines; you could change this to look for any resource type needed.</p>
 
-    <p>Finally, we’ll call an Azure Function to help us insert this data into OMS leveraging the HTTP Data Collector API. Calling an Azure Function from Logic Apps is natively supported, and only requires us to specify the payload we want to send:</p>
+    <p>Finally, we’ll call an Azure Function (discussed below) to help us insert this data into OMS leveraging the HTTP Data Collector API. Calling an Azure Function from Logic Apps is natively supported, and only requires us to specify the payload we want to send:</p>
 
     <p class="center"><img src="/media/OmsVmTags-3.png" alt="Logic Apps Function Action" /></p>
 
@@ -37,7 +37,9 @@
 
     <h3>Function App</h3>
 
-    <p>Azure Functions are the perfect partner to Logic Apps for custom extensibility points that require code or other logic that isn't possible within Logic Apps. In this case, the Function app handles the single task of inserting a JSON payload into OMS. This requires some standard code to build up a HMAC signature in order to correctly authenticate our POST call to insert data. The full code for the function is listed below:</p>
+    <p>Azure Functions are the perfect partner to Logic Apps for custom extensibility points that require code or other logic that isn't possible within Logic Apps. In this case, the Function app handles the single task of inserting a JSON payload into OMS. This requires some standard code to build up a HMAC signature in order to correctly authenticate our POST call to insert data.</p>
+
+    <p>To create our function, we'll add a new HTTP-triggered function, and select "C#" for the language. Sample code is shown below:</p>
 
     <pre><code class="c#">
 using System;
