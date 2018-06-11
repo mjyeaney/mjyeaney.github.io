@@ -20,7 +20,7 @@ blockquote {
 }
 
 .wrapper { 
-    max-width: 1450px; 
+    max-width: 1750px; 
     margin: 0px auto; 
 }
 #header { 
@@ -39,7 +39,7 @@ blockquote {
     font-size: 3em;
     text-shadow: 0px 0px 10px #ccc;
     line-height: 3em;
-    padding: 2em 0 0 .25em;
+    padding: 2em 0 0 .5em;
     cursor: pointer;
 }
 
@@ -98,22 +98,11 @@ pre {
 span.inlineCode { display: inline; font-family: Courier; padding: 0; }
 p.center img { cursor: pointer; }
 
-@media (max-height: 900px){
+@media (max-width: 1680px){
     body { font-size: 15px; }
     #header { height: 10em; }
     #header .wrapper h3 { font-size: 2em; }
     #header .wrapper ul { margin-top: 1em; }
-}
-
-@media (max-height: 550px){
-    #header { height: 3.5em; }
-    #header .wrapper h3 {
-        font-size: 2em;
-        line-height: 1.5em;
-        padding: 0 0 0 .25em;
-    }
-    #header .wrapper ul { margin-top: 1em; }
-    #header .wrapper ul li { margin-right: .5em; }
 }
 
 @media (max-width: 1024px) {
@@ -126,7 +115,6 @@ p.center img { cursor: pointer; }
     }
     #header .wrapper ul { margin-top: 1em; }
     #header .wrapper ul li { margin-right: .5em; }
-    .wrapper { max-width: 1500px; }
     #content .rightCol {
         float: none;
         width: auto;
