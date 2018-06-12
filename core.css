@@ -64,7 +64,7 @@ blockquote {
 
 #content { min-height: 20em; }
 #content .leftCol { padding: 0 2em; width: 65%; float: left; }
-#content .rightCol { width: 27%; float: right; margin: 0 1em 0 0; }
+#content .rightCol { width: 27%; float: right; margin: 0 2em 0 0; }
 
 p.social { border-top: 1px solid #c0c0c0; border-bottom: 1px solid #c0c0c0; text-align: center; padding: .5em 0; margin: 2em 0; }
 p.social a { display: inline-block; margin-right: 1em; }
@@ -105,7 +105,7 @@ p.center img { cursor: pointer; }
     #header .wrapper ul { margin-top: 1em; }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1140px) {
     body { font-size: 15px; }
     #header { height: 3.5em; }
     #header .wrapper h3 {
