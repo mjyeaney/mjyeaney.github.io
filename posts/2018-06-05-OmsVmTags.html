@@ -59,7 +59,7 @@ static string sharedKey = "-- Primary or Secondary Key--";
 // LogName is name of the event type that is being submitted to Log Analytics
 static string LogName = "CustomTagData";
 
-public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log)
+public static async Task&lt;HttpResponseMessage&gt; Run(HttpRequestMessage req, TraceWriter log)
 {
     log.Info("Starting OMS proxy execution...");
 
@@ -105,7 +105,7 @@ public static void PostData(string signature, string date, string json, TraceWri
 
         var httpContent = new StringContent(json, Encoding.UTF8);
         httpContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-        Task<System.Net.Http.HttpResponseMessage> response = client.PostAsync(new Uri(url), httpContent);
+        Task&lt;System.Net.Http.HttpResponseMessage&gt; response = client.PostAsync(new Uri(url), httpContent);
 
         var responseContent = response.Result.Content;
         var result = responseContent.ReadAsStringAsync().Result;
