@@ -39,7 +39,7 @@
 
     <p>Azure Functions are the perfect partner to Logic Apps for custom extensibility points that require code or other logic that isn't possible within Logic Apps. In this case, the Function app handles the single task of inserting a JSON payload into OMS. This requires some standard code to build up a HMAC signature in order to correctly authenticate our POST call to insert data.</p>
 
-    <p>To create our function, we'll add a new HTTP-triggered function, and select "C#" for the language. Sample code is shown below:</p>
+    <p>To create our function, we'll add a new HTTP-triggered function, and select "C#" for the language. Sample code is shown below - be sure to supply your workspace ID and primary (or secondary) access key so the function is able to write data to your OMS workspace:</p>
 
     <pre><code class="c#">
 using System;
