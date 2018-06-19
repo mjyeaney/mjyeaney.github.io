@@ -4,27 +4,29 @@
 // And mostly...because fun.
 //
 
-(function(){
+(() => {
     //
     // Module requirements
     //
-    var fs = require('fs');
-    var moment = require('moment');
-    var cheerio = require('cheerio');
+    const fs = require('fs'),
+        moment = require('moment'),
+        cheerio = require('cheerio');
 
     // 
     // Read in the chunks used for content generation
     //
-    var header = fs.readFileSync('header.html');
-    var footer = fs.readFileSync('footer.html');
-    var disqus = fs.readFileSync('disqus.html');
-    var index = [];
+    const header = fs.readFileSync('header.html'),
+        footer = fs.readFileSync('footer.html'),
+        disqus = fs.readFileSync('disqus.html');
+    
+    // Page metadata dict
+    let index = [];
 
     // 
     // General message logging method; displays time, etc.
     //
-    function logMessage(message){
-        var msg = [];
+    let logMessage = (message) => {
+        let msg = [];
         msg.push(moment().format('HH:mm:ss'));
         msg.push(': ');
         msg.push(message);
@@ -35,16 +37,16 @@
     // Gets summary information from the post markup, including the tags,
     // teaser information, and post date.
     //
-    function getSummaryInformation (input) {
+    let getSummaryInformation = (input) => {
         // Load / parse content
-        var $ = cheerio.load(input);
+        let $ = cheerio.load(input);
 
         // Get title, tag, teaser, and date information
-        var title = $('div.post .title').html();
-        var tags = $('div.post').data('tags').split(',');
-        var teaser = $('div.post .teaser').html();
-        var postDate = $('div.post').data('date');
-        var authorInfo = $('div.authorInfo').html();
+        let title = $('div.post .title').html(),
+            tags = $('div.post').data('tags').split(','),
+            teaser = $('div.post .teaser').html(),
+            postDate = $('div.post').data('date'),
+            authorInfo = $('div.authorInfo').html();
 
         // Package up and return
         return {
@@ -62,8 +64,8 @@
     // Note that each post has a date field attached to it via attributes
     // contained within the markup (file system stamps are not enough!!!).
     //
-    function publishPosts(){
-        var posts = fs.readdirSync('./posts'),
+    let publishPosts = () => {
+        let posts = fs.readdirSync('./posts'),
             j = 0,
             name = '',
             parts = [],
@@ -126,22 +128,11 @@
             path += '/index.html';
             logMessage('Creating ' + path + '...');
 
-            // // We need the disqus config options
-            // var pageIdentifier = path.replace(/\//g, '').replace('index.html', '');
-            // var diqusConfig = `
-            //     <script>
-            //     var disqus_config = function () {
-            //         this.page.url = '/${path}';
-            //         this.page.identifier = ${pageIdentifier};
-            //     };
-            //     </script>
-            // `;
-
             // Create index data for teasers
             teaser = getSummaryInformation(content.toString());
             
             // Write out the chunk of content
-            var thisHeader = header.toString().replace('${title}', teaser.title + " - ");
+            let thisHeader = header.toString().replace('${title}', teaser.title + " - ");
             fs.writeFileSync(path, thisHeader + content + disqus + footer);
 
             // This may not be needed anymore - keep an eye on it.
@@ -156,9 +147,9 @@
     // Index page generation...reads through posts, generates teasers, organizes 
     // based on date, and creates pages (iif needed).
     //
-    function updateIndex(){
+    let updateIndex = () => {
         // Initally, there are no posts.
-        var indexContent = `
+        let indexContent = `
             <div class="post">
                 <h2>Something\'s missing...</h2>
                 <p class="noItems">No active posts - please check back again later.</p>
@@ -189,7 +180,7 @@
         }
 
         // write out index page containing all teasers
-        var indexHeader = header.toString().replace('${title}', '');
+        let indexHeader = header.toString().replace('${title}', '');
         fs.writeFileSync('./index.html', indexHeader + indexContent + footer);
         logMessage('Done!');
     };
