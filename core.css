@@ -20,7 +20,7 @@ blockquote {
 }
 
 .wrapper { 
-    max-width: 1750px; 
+    max-width: 1550px; 
     margin: 0px auto; 
 }
 #header { 
@@ -100,6 +100,9 @@ p.center img { cursor: pointer; }
 
 @media (max-width: 1680px){
     body { font-size: 15px; }
+    .wrapper { 
+        max-width: 1350px; 
+    }
     #header { height: 10em; }
     #header .wrapper h3 { font-size: 2em; }
     #header .wrapper ul { margin-top: 1em; }
