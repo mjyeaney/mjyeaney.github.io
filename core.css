@@ -33,6 +33,7 @@ blockquote {
     position: relative;
     background: linear-gradient(90deg, #1a3a7a, #24549e);
     box-shadow: 0 0 15px #555;
+    border-top: .5em solid #135;
 }
 #header .wrapper h3 { 
     display: inline-block;
