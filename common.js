@@ -18,4 +18,12 @@ $(function(){
     $('#header h3').click(function(){
         location.href = '/';
     });
+
+    $(window).scroll(function(){
+        if($(window).scrollTop() >= $('#header').outerHeight()) {
+            $('#header').addClass('small');
+        } else {
+            $('#header').removeClass('small');
+        }
+    })
 });
