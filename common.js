@@ -19,11 +19,19 @@ $(function(){
         location.href = '/';
     });
 
+    var check = true;
+
     $(window).scroll(function(){
         if($(window).scrollTop() >= $('#header').outerHeight()) {
-            $('#header').addClass('small');
+            if (check){
+                $('#header').addClass('small');
+                check = false;
+            }
         } else {
-            $('#header').removeClass('small');
+            if (!check){
+                $('#header').removeClass('small');
+                check = true;
+            } 
         }
     })
 });
