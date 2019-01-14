@@ -59,16 +59,16 @@ WriteSharedData(newData);
 
     <h3>Approach</h3>
 
-    <p>The problem of ensuring proper execution across more than a single machine is typically the focus of distributed coordination,  handled by either optimistic or pessimistic methods. In this case, we’ll be implementing distributed locking, a form of pessimistic concurrency control where each individual request execution acquires and exclusive lock on a shared resource before proceeding. Other executions must wait, effectively giving a serial execution (or “one at a time” semantics), even across multiple concurrent executions. Note, however, that pessimistic locking does have significant performance overhead compared to optimistic techniques - this needs considered carefully before adopting such approaches.</p>
+    <p>The problem of ensuring proper execution across more than a single machine is the focus of distributed coordination, handled by either optimistic or pessimistic methods. In this case, we’ll be implementing distributed locking, a form of pessimistic concurrency control where each individual request execution acquires and exclusive lock on a shared resource before proceeding. Other executions must wait, effectively giving a serial execution (or “one at a time” semantics), even across multiple concurrent executions. Note, however, that pessimistic locking does have significant performance overhead compared to optimistic techniques - this needs considered carefully before adopting such approaches.</p>
 
     <p>Using our previous example pseudocode above, our solution would now look something like this if we guard it with our lock constructs:</p>
 
     <pre><code class="c#">...
-AcquireFileLock();
+AcquireLock();
 var data = ReadSharedData();
 var newData = ModifyData(data);
 WriteSharedData(newData);
-ReleaseFileLock();
+ReleaseLock();
 ...</code></pre>
 
     <p>Combining this with the knowledge of the underlying UNC share, we can simulate the distributed lock concept by opening files on the file share with exclusive “write” access (thereby providing our synchronization point).  Other clients/machines that attempt to acquire the same lock will be blocked until others release it. Time for some code!</p>
@@ -87,7 +87,7 @@ await lockfile.lock(“somefile.lock”, {retries: 5});
 await lockfile.unlock(“somefile.lock”);
 // Resume app code...</code></pre>
 
-    <p>To test this approach, I’ve put together a [small NodeJS sample](https://github.com/mjyeaney/azure-counter-sample) that uses this pattern to increment a counter across all machines (I’ve included a few sample load testing scripts in the repo).  I’m also running 3 instances of my application (running a Basic-1 plan) to ensure multiple machines are in play.  If successful, the counter should monotonically increase, up to the the number of tests we run.</p>
+    <p>To test this approach, I’ve put together a <a href="https://github.com/mjyeaney/azure-counter-sample">small NodeJS sample</a> that uses this pattern to increment a counter across all machines (I’ve included a few sample load testing scripts in the repo).  I’m also running 3 instances of my application (running a Basic "B1" sku) to ensure multiple machines are in play.  If successful, the counter should monotonically increase, up to the the number of tests we run.</p>
 
     <h3>Testing</h3>
 
@@ -157,7 +157,10 @@ New counter value is: 327</pre>
 
     <h3>Limitations</h3>
 
-    <p>As with any approach, one size does not fit all, and this won’t work for every scenario. Most notably, high throughput scenarios are likely to suffer using this approach, as we need to consider the limitations on the underlying file share and the constant additional network communication that is occurring to keep the file share synchronized. That said, this may be a useful approach for low- to medium- throughput scenarios which have logic that isn’t easily adopted to such distributed environments.</p>
+    <p>As with any approach, one size does not fit all, and this won’t work for every scenario. Most notably, high throughput scenarios are likely to suffer using this approach, as we need to consider the limitations on the underlying file share and the constant additional network communication that is occurring to keep the file share synchronized. That said, this may be a useful approach for low- to medium- throughput scenarios which have logic that isn’t easily adopted to such distributed environments. Also, note that extra care needs to be taken to ensure proper handling of error conditions - crashing in a "locked" state may leave your application unavailable until the exclusive file lock is released (likely a less than ideal situation for your end users).</p>
+
+    <p>Cheers!!!</p>
+
 </div>
 <div id="disqus_thread"></div>
 <script>
