@@ -109,6 +109,7 @@ pre {
 }
 
 span.inlineCode { display: inline; font-family: Courier; padding: 0; }
+p.note { background-color: #fea; padding: 1em; font-style: italic; }
 p.center img { cursor: pointer; }
 
 @media (max-width: 1680px){
