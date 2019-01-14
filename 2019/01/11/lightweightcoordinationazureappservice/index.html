@@ -27,72 +27,65 @@
             <div class="wrapper">
                 <div class="leftCol">
 <div class="post" data-tags="Azure,App Service,Concurrency,Distributed Systems" data-date="2019-01-11">
+
     <h2 class="title">Lightweight Coordination on Azure AppService</h2>
     <div class="authorInfo">Michael Yeaney <span class="dateText">January 11, 2019</span></div>
 
-    <p class="teaser">Occasionally while working on customer projects, you encounter conditions that requiring thinking outside the box in order to deliver working solutions.  In this case, I’ll share an approach used to ensure serial execution of business logic across multiple instances of Azure AppService  - even when the logic isn’t suited to this type of environment. However, what makes this solution unique is that it doesn’t rely on any external services to provide this functionality, even between multiple instances of of the application.</p>
+    <p class="teaser">In this post I want to share an approach used to ensure serial execution of business logic across multiple instances of Azure AppService  - even when the logic isn’t suited to this type of environment. However, what makes this solution unique is that it doesn’t rely on any external services to provide this functionality, even between multiple instances of of the application.</p>
 
     <h3>Problem</h3>
 
     <p>Before diving into implementation details, it’s important to understand the context of the problem. In this case, we had logic similar to the following pseudocode:</p>
 
-    <pre><code class="c#">
-...
+    <pre><code class="c#">...
 var data = ReadSharedData();
 var newData = ModifyData(data);
 WriteSharedData(newData);
-...
-    </code></pre>
+...</code></pre>
 
-    <p>Some of you no doubt recognize this pattern and could suggest common approaches to guard this on a single machine (i.e., thread-based concurrency controls such as <span class="inlineCode">lock/monitor</span>). However,  we would still have a problem when this logic executes on multiple machines at the same time.</p>
+    <p>Some readers no doubt recognize this pattern and can suggest several common approaches to ensure proper execution on a single machine (i.e., thread-based concurrency controls such as <span class="inlineCode">lock/monitor</span>). However,  we would still have a problem when this logic executes on multiple machines at the same time.</p>
 
-    <p class="note">NOTE: While it is possible to rewrite the logic to remove the need to coordination and leverage optimistic concurrency techniques, in some cases rewriting existing logic may not be possible.</p>
+    <p class="note">NOTE: While it is possible to rewrite the logic to remove the need for centralized coordination, in some cases rewriting existing logic may not be possible. In this example we're focusing on enabling such logic.</p>
 
-    <p>Typically in such scenarios, we would employ services such as Redis or ZooKeeper to provide such locking (or even leverage Azure Blob storage leases (see <a href="https://docs.microsoft.com/en-us/azure/architecture/patterns/leader-election" title="Leader Election">https://docs.microsoft.com/en-us/azure/architecture/patterns/leader-election</a>). While these are indeed adequate solutions, they require the deployment of additional services, as well as administering highly-available deployments (specifically for Redis and ZooKeeper). For some teams that may not have these skills, this can present an enormous challenge. So, for this specific use case, what we would like to do is provide similar control natively on Azure AppService deployments to avoid the need for any additional services. </p>
+    <p>Typically in such scenarios, we could employ services such as Redis or ZooKeeper to provide such locking, or even leverage Azure Blob storage leases (see <a href="https://docs.microsoft.com/en-us/azure/architecture/patterns/leader-election" title="Leader Election">https://docs.microsoft.com/en-us/azure/architecture/patterns/leader-election</a>). While these are indeed adequate solutions, they require the deployment of additional services, as well as potentially administering highly-available deployments (specifically for Redis and ZooKeeper). For some teams that may not have these skills and/or have access to deploy such resources, this can present an enormous challenge. So, for this specific use case, we will be providing similar control natively on Azure AppService deployments without the need for any additional services in order to avoid such overhead. </p>
 
-    <h3>AppService Internals</h3>
+    <h3>Some AppService Internals</h3>
 
-    <p>Azure App Service is a service for hosting web applications, REST APIs, and mobile back ends without worrying about managing infrastructure [1]. Additionally, you can also specify options for scaling-out (multiple instances) effectively running many instances of your application across a pool of machines. In order to ensure your code and data are deployed across all machines, the underlying platform mounts an underlying file share that contains your code and/or data as shown below:</p>
+    <p>Azure App Service is a service for hosting web applications, REST APIs, and mobile back ends without worrying about managing infrastructure (additional details <a href="https://docs.microsoft.com/en-us/azure/app-service/overview">here</a>). Additionally, you can specify options for scaling-out (via multiple instances), effectively running many instances of your application across a pool of machines while letting the Azure platform handling deployment of your code and data to these instances. In order to ensure this, one of the techniques used by the underlying platform is to mount an underlying file share that contains your code and/or data as shown below:</p>
 
-    <p>(TODO Image showing appservice nodes and a file share)</p>
+    <p class="center"><img src="/media/AppSvcCoordination-1.png" alt="AppService Internals" /></p>
 
-    <p>For more details, see <a href="https://docs.microsoft.com/en-us/azure/app-service/operating-system-functionality#network-drives-aka-unc-shares" title="UNC Shares on Azure App Service">https://docs.microsoft.com/en-us/azure/app-service/operating-system-functionality#network-drives-aka-unc-shares</a> and <a href="https://github.com/projectkudu/kudu/wiki/Understanding-the-Azure-App-Service-file-system" title="Kudu file system">https://github.com/projectkudu/kudu/wiki/Understanding-the-Azure-App-Service-file-system</a>.</p>
+    <p>For more details, see <a href="https://docs.microsoft.com/en-us/azure/app-service/operating-system-functionality#network-drives-aka-unc-shares" title="UNC Shares on Azure App Service">https://docs.microsoft.com/en-us/azure/app-service/operating-system-functionality#network-drives-aka-unc-shares</a> and <a href="https://github.com/projectkudu/kudu/wiki/Understanding-the-Azure-App-Service-file-system" title="Kudu file system">https://github.com/projectkudu/kudu/wiki/Understanding-the-Azure-App-Service-file-system</a>. This underlying file share gives us a common file system that every worker node in the deployment is able to read and write to. It is this shared file system that we’ll be taking advantage of to implement our example solution.</p>
 
-    <p>This underlying file share gives us a synchronized, distributed file system that every node in the deployment is able to read and write to. It is this shared file system that we’ll be taking advantage of to implement our example solution. More information on SMB opportunistic locking can be found here: https://docs.microsoft.com/en-us/windows/desktop/fileio/opportunistic-locks </p>
+    <h3>Approach</h3>
 
-    <h3>Design</h3>
+    <p>The problem of ensuring proper execution across more than a single machine is typically the focus of distributed coordination,  handled by either optimistic or pessimistic methods. In this case, we’ll be implementing distributed locking, a form of pessimistic concurrency control where each individual request execution acquires and exclusive lock on a shared resource before proceeding. Other executions must wait, effectively giving a serial execution (or “one at a time” semantics), even across multiple concurrent executions. Note, however, that pessimistic locking does have significant performance overhead compared to optimistic techniques - this needs considered carefully before adopting such approaches.</p>
 
-    <p>The problem of ensuring proper execution across more than a single machine is the focus of distributed coordination, typically handled by either optimistic or pessimistic methods. In this case, we’ll be implementing distributed locking, a form of pessimistic concurrency control where  each individual request execution acquires and exclusive lock on a shared resource before proceeding. Other executions must wait, effectively giving a serial execution (or “one at a time” semantics), even across multiple concurrent executions.</p>
+    <p>Using our previous example pseudocode above, our solution would now look something like this if we guard it with our lock constructs:</p>
 
-    <p>Using our previous example pseudocode above, our solution would look now something like this if we guard it with our lock constructs:</p>
-
-    <pre><code class="c#">
-...
-AcquireLock();
+    <pre><code class="c#">...
+AcquireFileLock();
 var data = ReadSharedData();
 var newData = ModifyData(data);
 WriteSharedData(newData);
-ReleaseLock();
-...
-    </code></pre>
+ReleaseFileLock();
+...</code></pre>
 
-    <p>Combining this with the knowledge of an underlying SMB share, we can simulate the distributed lock concept by opening files on the file share with exclusive “write”  access.  Other clients/machines that attempt to acquire the same lock will be blocked until others release it. Time for some code!</p>
+    <p>Combining this with the knowledge of the underlying UNC share, we can simulate the distributed lock concept by opening files on the file share with exclusive “write” access (thereby providing our synchronization point).  Other clients/machines that attempt to acquire the same lock will be blocked until others release it. Time for some code!</p>
 
     <h3>Implementation</h3>
 
-    <p>For this sample, I’m using NodeJS, specifically the <span class="inlineCode">proper-lockfile</span> NPM package [https://github.com/moxystudio/node-proper-lockfile] which gives a nice interface over locking and unlocking files. It also ensures that measures are taken to avoid reading/writing from the local file system cache (including writing folders, which are always sync’d) and opening files in modes that instruct the OS to not use the local cache.</p>
+    <p>For this sample, I’m using NodeJS (specifically the <span class="inlineCode">proper-lockfile</span> NPM package - details <a href="https://github.com/moxystudio/node-proper-lockfile">here</a>) which gives a nice interface over locking and unlocking files. It also ensures that measures are taken to avoid reading/writing from the local file system cache (including writing folders, which are always sync’d) and opening files in modes that instruct the OS to not use the local cache.</p>
 
     <p>Basic pattern for using this approach is shown below (example in TypeScript):</p>
 
-    <pre><code class="Javascript">
-import * as lockfile from "proper-lockfile";
+    <pre><code class="Javascript">import * as lockfile from "proper-lockfile";
 
 // Other app code...
 await lockfile.lock(“somefile.lock”, {retries: 5});
 // TODO: Do work here
 await lockfile.unlock(“somefile.lock”);
-// Resume app code...
-    </code></pre>
+// Resume app code...</code></pre>
 
     <p>To test this approach, I’ve put together a small NodeJS site that uses this pattern to increment a counter across all machines (I’ve included a few sample load testing scripts in the repo).  I’m also running 3 instances of my application (running a Basic-1 plan) to ensure multiple machines are in play.  If successful, the counter should monotonically increase, up to the the number of tests we run.</p>
 
@@ -100,29 +93,65 @@ await lockfile.unlock(“somefile.lock”);
 
     <p>In our first test, we’ll run a single script, which effectively has no parallelism. In this case, we fully expect the counter to read 100:</p>
 
-    <p>(TODO)</p>
+    <pre>MESSAGE: Counter value is now 1
+MESSAGE: Counter value is now 2
+MESSAGE: Counter value is now 3
+MESSAGE: Counter value is now 4
+...
+MESSAGE: Counter value is now 97
+MESSAGE: Counter value is now 98
+MESSAGE: Counter value is now 99
+MESSAGE: Counter value is now 100</pre>
 
     <p>In the next test, we’ll run 2 scripts in parallel - assuming all requests complete, the counter should now read 2 x 100 = 200:</p>
 
-    <p>(TODO)</p>
+    <pre>MESSAGE: Counter value is now 1
+MESSAGE: Counter value is now 2
+MESSAGE: Counter value is now 3
+MESSAGE: Counter value is now 4
+...
+MESSAGE: Counter value is now 197
+MESSAGE: Counter value is now 198
+MESSAGE: Counter value is now 199
+MESSAGE: Counter value is now 200</pre>
 
     <p>Finally, let’s test 4 scripts, which should give us 4 x 100 = 400:</p>
 
-    <p>(TODO)</p>
+    <pre>MESSAGE: Counter value is now 1
+MESSAGE: Counter value is now 2
+MESSAGE: Counter value is now 3
+MESSAGE: Counter value is now 4
+...
+MESSAGE: Counter value is now 397
+MESSAGE: Counter value is now 398
+MESSAGE: Counter value is now 399
+MESSAGE: Counter value is now 400</pre>
 
-    <p>Looks like we’ve achieved our goal - parallel requests correctly modifying (incrementing) a shared value (in this case, a simple counter). However, let’s also look at the “negative” result - that is, if we test without the synchronization code, we should see lost writes and/or corrupted data:</p>
+    <p>Looks like we’ve achieved our goal - parallel requests correctly modifying (incrementing) a shared value (in this case, a simple counter). However, let’s also look at the “negative” result - that is, if we test this last example without the synchronization code, we should see lost writes and/or corrupted data:</p>
 
-    <p>(TODO)</p>
+    <pre>MESSAGE: Counter value is now 1
+MESSAGE: Counter value is now 1
+MESSAGE: Counter value is now 2
+MESSAGE: Counter value is now 3
+MESSAGE: Counter value is now 3
+MESSAGE: Counter value is now 3
+MESSAGE: Counter value is now 3
+MESSAGE: Counter value is now 4
+...
+MESSAGE: Counter value is now 297
+MESSAGE: Counter value is now 297
+MESSAGE: Counter value is now 297
+MESSAGE: Counter value is now 299
+...
+MESSAGE: Counter value is now 326
+MESSAGE: Counter value is now 326
+MESSAGE: Counter value is now 328
+MESSAGE: Counter value is now 327
+MESSAGE: Counter value is now 327
+MESSAGE: Counter value is now 327
+MESSAGE: Counter value is now 327</pre>
 
-    <p>Exactly what we expected to see with contention on a shared resource, and demonstrates nicely how problems can appear out of nowhere when in environments such as this.</p>
-
-    <h3>Portability</h3>
-
-    <p>To further prove this technique not only works across machine, but across languages, we can try setting up a scenario where a NodeJS client acquires the file lock, and have a .NET Core client try to steal it. If the technique is full supported via the underlying file share, each client should wait until the previous releases the lock. </p>
-
-    <p>Code for this test is in this repo [], and from a sample log trace shown below we see exactly the correct behaviors. Note the setup for this test is a bit more complicated (setting up an Azure VM, creating an Azure File Share, mounting it, and running the tests) - but the overall result is what we would expect:</p>
-
-    <p>(TODO)</p>
+    <p>Note that we now have lost writes caused by the last-write-wins behavior of unsynchronized code - exactly what we expected to see with contention on a shared resource. This nicely demonstrates how problems can appear out of nowhere when deploying to environments that break core assumptions of the underlying code.</p>
 
     <h3>Limitations</h3>
 
