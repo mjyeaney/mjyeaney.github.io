@@ -2,23 +2,34 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"> 
   <url>
     <loc>https://mjyeaney.github.io/</loc> 
+    <lastmod>2019-01-16</lastmod>
   </url>
   <url>
-    <loc>https://mjyeaney.github.io/2018/06/05/omsvmtags/</loc> 
+    <loc>https://mjyeaney.github.io/2019/01/11/lightweightcoordination/</loc>
+    <lastmod>2019-01-16</lastmod>
+  </url>
+  <url>
+    <loc>https://mjyeaney.github.io/2018/06/05/omsvmtags/</loc>
+    <lastmod>2019-01-16</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/2017/08/14/messagelifetimesfaultyclocks/</loc> 
+    <lastmod>2019-01-16</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/2017/08/07/cacheconsistency/</loc> 
+    <lastmod>2019-01-16</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/2017/03/30/powershellqueues/</loc> 
+    <lastmod>2019-01-16</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/2017/03/29/powershellfun/</loc> 
+    <lastmod>2019-01-16</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/about/</loc> 
+    <lastmod>2019-01-16</lastmod>
   </url>
 </urlset>
