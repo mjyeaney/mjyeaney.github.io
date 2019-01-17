@@ -108,7 +108,7 @@ pre {
     overflow-x: auto;
 }
 
-span.inlineCode { display: inline; font-family: monospace; padding: .15em; background-color: #eee; }
+span.inlineCode { display: inline; font-family: monospace; padding: .15em; background-color: #eee; font-size: .875em; }
 p.note { background-color: #fea; padding: 1em; font-style: italic; }
 p.center img { cursor: pointer; }
 
