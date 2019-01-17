@@ -61,7 +61,7 @@ await lockfile.unlock(“somefile.lock”);
 
     <p>To test this approach, I’ve put together a <a href="https://github.com/mjyeaney/azure-counter-sample">small NodeJS sample</a> that uses this pattern to increment a counter across all machines (I’ve included a few sample load testing scripts in the repo).  I’m also running 3 instances of my application (running a Basic "B1" sku) to ensure multiple machines are in play.  If successful, the counter should monotonically increase, up to the the number of tests we run.</p>
 
-    <p>The sample application has a very simple REST API that can be trigger from using `curl` or any other tool:</p>
+    <p>The sample application has a very simple REST API that can be trigger from using <span class="inlineCode">curl</span> or any other tool:</p>
 
     <ul>
         <li><span class="inlineCode"><strong>POST</strong> /incrementSafe</span> : safely increments the shared counter.</li>
