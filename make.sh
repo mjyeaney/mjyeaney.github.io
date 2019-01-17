@@ -2,7 +2,7 @@
 
 # Static site generator for my personal blog
 echo -n "Removing existing post directories..."
-ls -a1 | grep -E "\d{4}" | xargs rm -r
+ls -a1 | grep -E "\d{4}" | xargs rm -rf
 echo "Done!!!"
 
 echo "Generating new posts..."

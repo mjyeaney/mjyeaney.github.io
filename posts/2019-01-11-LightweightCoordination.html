@@ -1,9 +1,9 @@
 <div class="post" data-tags="Azure,App Service,Concurrency,Distributed Systems" data-date="2019-01-11">
 
-    <h2 class="title">Lightweight Coordination on Azure AppService</h2>
+    <h2 class="title">Lightweight Coordination on Azure App Service</h2>
     <div class="authorInfo">Michael Yeaney <span class="dateText">January 11, 2019</span></div>
 
-    <p class="teaser">In this post I want to share an approach used to ensure serial execution of business logic across multiple instances of Azure AppService  - even when the logic isn’t suited to this type of environment. However, what makes this solution unique is that it doesn’t rely on any external services to provide this functionality, even between multiple instances of of the application.</p>
+    <p class="teaser">In this post I want to share an approach used to ensure serial execution of business logic across multiple instances of Azure App Service  - even when the logic isn’t suited to this type of environment. However, what makes this solution unique is that it doesn’t rely on any external services to provide this functionality, even between multiple instances of of the application.</p>
 
     <h3>Problem</h3>
 
@@ -21,13 +21,13 @@ WriteSharedData(newData);
 
     <p>Typically in these scenarios, we could employ services such as Redis or ZooKeeper to provide such locking, or even leverage Azure Blob storage leases (see <a href="https://docs.microsoft.com/en-us/azure/architecture/patterns/leader-election" title="Leader Election">https://docs.microsoft.com/en-us/azure/architecture/patterns/leader-election</a>). While these are indeed adequate solutions, they require the deployment of additional services, as well as potentially administering highly-available deployments (specifically for Redis and ZooKeeper). For some teams that may not have these skills and/or have access to deploy such resources, this can present an enormous challenge. Therefore, for this specific use case we will be showing how to provide similar control within the application itself without the need for any additional services in order to avoid these problems. </p>
 
-    <h3>Some AppService Internals</h3>
+    <h3>Some App Service Internals</h3>
 
     <p>Azure App Service is a service for hosting web applications, REST APIs, and mobile back ends without worrying about managing infrastructure (additional details <a href="https://docs.microsoft.com/en-us/azure/app-service/overview">here</a>). Additionally, you can specify options for scaling-out (via multiple instances), effectively running many instances of your application across a pool of machines while letting the Azure platform handling deployment of your code and data to these instances. In order to ensure this, one of the techniques used is to mount an underlying file share that contains your code and/or data as shown below:</p>
 
-    <p class="center"><img src="/media/AppSvcCoordination-1.png" alt="AppService Internals" /></p>
+    <p class="center"><img src="/media/AppSvcCoordination-1.png" alt="App Service Internals" /></p>
 
-    <p>For more details, see <a href="https://docs.microsoft.com/en-us/azure/app-service/operating-system-functionality#network-drives-aka-unc-shares" title="UNC Shares on Azure App Service">https://docs.microsoft.com/en-us/azure/app-service/operating-system-functionality#network-drives-aka-unc-shares</a> and <a href="https://github.com/projectkudu/kudu/wiki/Understanding-the-Azure-App-Service-file-system" title="Kudu file system">https://github.com/projectkudu/kudu/wiki/Understanding-the-Azure-App-Service-file-system</a>. This underlying file share gives us a common file system that every worker node in the deployment is able to read and write to. It is this shared file system that we’ll be taking advantage of to implement our example solution.</p>
+    <p>For more details, see the following articles on <a href="https://docs.microsoft.com/en-us/azure/app-service/operating-system-functionality#network-drives-aka-unc-shares" title="UNC Shares on Azure App Service">App Service UNC Shares</a> and <a href="https://github.com/projectkudu/kudu/wiki/Understanding-the-Azure-App-Service-file-system" title="Kudu file system">Understanding the Azure App Service file system</a>. It will be this file share that gives us a common location that every worker node in the deployment is able to read and write to - we’ll be taking advantage of that to implement our example solution.</p>
 
     <h3>Approach</h3>
 
@@ -60,6 +60,15 @@ await lockfile.unlock(“somefile.lock”);
 // Resume app code...</code></pre>
 
     <p>To test this approach, I’ve put together a <a href="https://github.com/mjyeaney/azure-counter-sample">small NodeJS sample</a> that uses this pattern to increment a counter across all machines (I’ve included a few sample load testing scripts in the repo).  I’m also running 3 instances of my application (running a Basic "B1" sku) to ensure multiple machines are in play.  If successful, the counter should monotonically increase, up to the the number of tests we run.</p>
+
+    <p>The sample application has a very simple REST API that can be trigger from using `curl` or any other tool:</p>
+
+    <ul>
+        <li><span class="inlineCode"><strong>POST</strong> /incrementSafe</span> : safely increments the shared counter.</li>
+        <li><span class="inlineCode"><strong>POST</strong> /incrementUnsafe</span> : increments the shared counter without leveraging the safety lock.</li>
+    </ul>
+
+    <p>We'll use both of these methods to test the impact of the locking solution in the next section.</p>
 
     <h3>Testing</h3>
 
