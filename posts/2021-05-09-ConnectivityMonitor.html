@@ -42,7 +42,7 @@
     </p>
 
     <ul>
-        <li>On one of my laptops / workstations (step "1" in the diagram) executesa simple shell script that does the following:</li>
+        <li>On one of my laptops / workstations (step "1" in the diagram) executes a simple shell script that does the following:</li>
         <ul>
             <li>Create a small JSON file indicating the current local date/time in ISO-8601 format.</li>
             <li>Upload this JSON file to an Azure storage account container</li>
@@ -50,7 +50,7 @@
         </ul>
         <li>To setup visualization, do the following:</li>
         <ul>
-            <li>Create a small, single HTML page with a bit of vanilla JS, hosted from the <code>$web</code> container on Azure storage (step "2" in the diagram)</li>
+            <li>Create a small, single HTML page with a bit of vanilla JS, hosted from the <pre>$web</pre> container on Azure storage (step "2" in the diagram)</li>
             <li>The JS on the page will read the uploaded JSON file from the home machine (step "3" in the diagram)</li>
             <li>The JSON file will be parsed to update/present a simple animation indicating the current status of the home network as follows:</li>
                 <ul>
