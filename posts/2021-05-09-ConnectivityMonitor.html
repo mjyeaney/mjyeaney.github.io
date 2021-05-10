@@ -1,0 +1,98 @@
+<div class="post" data-tags="Azure,30 Minute Drills,Network,Fun" data-date="2021-05-10">
+
+    <h2 class="title">Simple Network Connectivity Monitor</h2>
+    <div class="authorInfo">Michael Yeaney <span class="dateText">May 10, 2021</span></div>
+
+    <p class="teaser">
+        Last week, the local power company contacted me to say the following morning they would be shutting off power to 
+        my home for a few hours. This meant that my home router would be down, and therefore so would all network access to 
+        remote meetings / code / documents / etc. So in the spirit of a <a href="http://localhost:8080/2021/05/09/30minutedrills/">#30MintueDrill</a>, I decided to see if I could somehow monitor when my 
+        network was back up from the outside <i>without</i> requiring inbound access. And of course, also have some fun doing it :-).
+    </p>
+
+    <h3>Constrained Design</h3>
+
+    <p>
+        While there are a number of ways to solve problems like this, I intentionally constrained myself to a set of 
+        solutions that did NOT require me opening firewall ports to my network. Additionally, there should be no "server-side" 
+        component that would require deployment of additional resources (if possible). While these constraints are arbitrary, 
+        I find it a good exercise for keeping my problem solving chops up.
+    </p>
+
+    <p>
+        To that end, I came up with the following set of specifications:
+    </p>
+
+    <ol>
+        <li>Give a visual status that my home workstation(s) are up and running (and therefore my router as well).</li>
+        <li>Do NOT require any inbound access at all.</li>
+        <li>Must be quick to develop and deploy</li>
+        <li>Must be visibile from cell phone / laptop / etc.</li>
+        <li>Do not require server-side infra deployment (if possible)</li>
+    </ol>
+
+    <p>
+        Given the above specifications, the approach I came up with is pretty simple:
+    </p>
+
+    <p class="center"><img src="/media/ConnectivityMonitor-1.png" alt="Connectivity Monitor architecture diagram" /></p>
+
+    <p>
+        The basic idea is as follows:
+    </p>
+
+    <ul>
+        <li>On one of my laptops / workstations (step "1" in the diagram) executesa simple shell script that does the following:</li>
+        <ul>
+            <li>Create a small JSON file indicating the current local date/time in ISO-8601 format.</li>
+            <li>Upload this JSON file to an Azure storage account container</li>
+            <li>Automate this process via CRON to run every minute.</li>
+        </ul>
+        <li>To setup visualization, do the following:</li>
+        <ul>
+            <li>Create a small, single HTML page with a bit of vanilla JS, hosted from the <code>$web</code> container on Azure storage (step "2" in the diagram)</li>
+            <li>The JS on the page will read the uploaded JSON file from the home machine (step "3" in the diagram)</li>
+            <li>The JSON file will be parsed to update/present a simple animation indicating the current status of the home network as follows:</li>
+                <ul>
+                    <li>If it's been updated within the last minute, it's assumed up.</li>
+                    <li>If there was been no update in 2 minutes, it's assumed down.</li>
+                </ul>
+            </li>
+        </ul>
+    </ul>
+    
+    <p>
+        That's it - I think it's about as simple as I could make it.
+    </p>
+
+    <h3>Running the Monitor</h3>
+
+    <p>
+        Full details for setting up the connection monitor are on the <a href="https://github.com/mjyeaney/ConnectivityMonitor" title="GitHub Repo">GitHub repo</a> - but once configured and running, 
+        you should see a visual indication of the network connection status as shown below:
+    </p>
+
+    <p class="center"><img src="/media/ConnectivityMonitor-2.png" alt="Network up indicator" /></p>
+
+    <p>
+        If the monitor is unable to keep the JSON file update for around ~2 mins, you should see the following status 
+        indication:
+    </p>
+
+    <p class="center"><img src="/media/ConnectivityMonitor-3.png" alt="Network down indicator" /></p>
+
+    <h3>Next Steps</h3>
+
+    <p>
+        Obivously, this same technique is used frequently when enabling inbound private network access is either not 
+        desired or not possible. This approach is also applicable to many other pieces of data than just network 
+        status - metrics such as CPU, memory usage, temperature, etc. are all candidates for "push style" reporting.
+    </p>
+
+    <p>
+        Finally, in the sprit of the <a href="http://localhost:8080/2021/05/09/30minutedrills/">#30MintueDrill</a>, there are many areas that could use some cleanup - error handling, 
+        formatting cleanup, even testing. I'll contiue to fix up and submit issues as I find things, but PR's are always 
+        accepted :-).
+    </p>
+
+</div>
