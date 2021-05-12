@@ -1,31 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://mjyeaney.github.io/2021/05/09/connectivitymonitor/</loc>
+    <lastmod>2021-05-11</lastmod>
+  </url>
+  <url>
+    <loc>https://mjyeaney.github.io/2021/05/09/30minutedrills/</loc>
+    <lastmod>2021-05-11</lastmod>
+  </url>
+  <url>
     <loc>https://mjyeaney.github.io/2019/01/11/lightweightcoordination/</loc>
-    <lastmod>2019-01-16</lastmod>
+    <lastmod>2021-05-11</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/2018/06/05/omsvmtags/</loc>
-    <lastmod>2019-01-16</lastmod>
+    <lastmod>2021-05-11</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/2017/08/14/messagelifetimesfaultyclocks/</loc> 
-    <lastmod>2019-01-16</lastmod>
+    <lastmod>2021-05-11</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/2017/08/07/cacheconsistency/</loc> 
-    <lastmod>2019-01-16</lastmod>
+    <lastmod>2021-05-11</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/2017/03/30/powershellqueues/</loc> 
-    <lastmod>2019-01-16</lastmod>
+    <lastmod>2021-05-11</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/2017/03/29/powershellfun/</loc> 
-    <lastmod>2019-01-16</lastmod>
+    <lastmod>2021-05-11</lastmod>
   </url>
   <url>
     <loc>https://mjyeaney.github.io/about/</loc> 
-    <lastmod>2019-01-16</lastmod>
+    <lastmod>2021-05-11</lastmod>
   </url>
 </urlset>
