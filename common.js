@@ -12,7 +12,7 @@ $(function(){
     });
 
     $('p.center img').click(function(){
-        location.href = this.src;
+        window.open(this.src, "_blank");
     });
 
     $('#header h3').click(function(){

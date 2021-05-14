@@ -94,7 +94,7 @@ div.mugShot img { width: 200px; height: 200px; border: 2px solid #012; border-ra
 .post h3 { font-weight: bold; font-size: 1em; margin-bottom: 1em; }
 .post .authorInfo { font-size: .875em; margin-bottom: 1.5em; margin-top: -1em; padding-bottom: .5em; color: #000;}
 .post .authorInfo .dateText { padding-left: 1em; color: #888;}
-.post img { width: 100%; max-width: 480px; border: 1px solid #ccc; box-shadow: 0 0 10px #ccc; background-color: #fff; }
+.post img { max-width: 480px; border: 1px solid #ccc; box-shadow: 0 0 10px #ccc; background-color: #fff; }
 
 .post.frontPage h2 a:hover { text-decoration: underline; }
 .post.frontPage .authorInfo { margin-top: 1em; }
