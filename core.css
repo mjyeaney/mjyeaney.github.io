@@ -92,13 +92,28 @@ div.mugShot img { width: 200px; height: 200px; border: 2px solid #012; border-ra
 .post { margin-bottom: 1em; }
 .post h2, .post h2 a { font-weight: 400; margin-bottom: 1em; text-align: left; color: #24548e!important; }
 .post h3 { font-weight: bold; font-size: 1em; margin-bottom: 1em; }
-.post .authorInfo { font-size: .875em; margin-bottom: 1.5em; margin-top: -1em; padding-bottom: .5em; color: #000;}
+.post .authorInfo { font-size: .875em; margin-bottom: 1.25em; margin-top: -1em; padding-bottom: .5em; color: #000;}
 .post .authorInfo .dateText { padding-left: 1em; color: #888;}
 .post img { max-width: 480px; border: 1px solid #ccc; box-shadow: 0 0 10px #ccc; background-color: #fff; }
 
 .post.frontPage h2 a:hover { text-decoration: underline; }
 .post.frontPage .authorInfo { margin-top: 1em; }
 /* .noItems { font-style: italic; } */
+
+.post .tagList {
+    list-style-type: none;
+    margin-left: 0;
+    margin-bottom: 1.5em;
+}
+.post .tagList li {
+    display: inline;
+    font-size: .875em;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    padding: .25em .75em;
+    margin-right: 1em;
+    cursor: default;
+}
 
 pre {
     background-color: #eee;

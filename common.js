@@ -21,17 +21,26 @@ $(function(){
 
     var check = true;
 
-    $(window).scroll(function(){
-        if($(window).scrollTop() >= $('#header').outerHeight()) {
-            if (check){
+    $(window).scroll(function () {
+        if ($(window).scrollTop() >= $('#header').outerHeight()) {
+            if (check) {
                 $('#header').addClass('small');
                 check = false;
             }
         } else {
-            if (!check){
+            if (!check) {
                 $('#header').removeClass('small');
                 check = true;
-            } 
+            }
         }
-    })
+    });
+
+    let tags = $("div.post").data('tags').split(',');
+    let tagList = [];
+    tagList.push("<ul class='tagList'>");
+    tags.map(function(tag){
+        tagList.push(`<li>${tag}</li>`);
+    });
+    tagList.push("</ul>");
+    $(".tagDisplay").append(tagList.join(''));
 });

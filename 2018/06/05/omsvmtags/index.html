@@ -7,7 +7,7 @@
         <meta name="viewport" content="width=device-width, user-scalable=no">
         <title>Query Azure VM Tags from Log Analytics - Michael Yeaney - Blog</title>
         <link href="//fonts.googleapis.com/css?family=Open+Sans:400,300,600" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" type="text/css" href="/core.css?ver=1.51" />
+        <link rel="stylesheet" type="text/css" href="/core.css?ver=1.52" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico?ver=1.50" />
         <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" />
     </head>
@@ -30,6 +30,7 @@
 
     <h2 class="title">Query Azure VM Tags from Log Analytics</h2>
     <div class="authorInfo">Michael Yeaney <span class="dateText">June 5, 2018</span></div>
+    <div class="tagDisplay"></div>
 
     <p class="teaser">A common issue I encounter when working with customers is how to best expose Azure Resource Manager tag values in Log Analytics queries.  While this feature isn’t available natively in Log Analytics at the moment, we can leverage Azure serverless offerings (including Logic Apps and Functions) to pull this data into your Log Analytics workspaces.  This data can then be used to create tag-driven alerts or augment queries with tag information that may have been previously unavailable.</p>
 
