@@ -372,8 +372,8 @@ Z3(75, 10): ERROR: model is not available</code></pre>
 
     <pre><code>
 ; Inbound internet traffic from internet is allowed on port 8080
-(matches 16777217 167772415 167772416 167772671 0 65535 8081 8081)
-(matches 167772672 3758096383 167772416 167772671 0 65535 8081 8081)
+(matches 16777217 167772415 167772416 167772671 0 65535 8080 8080)
+(matches 167772672 3758096383 167772416 167772671 0 65535 8080 8080)
     </code></pre>
 
     <p>
@@ -389,7 +389,7 @@ Z3(75, 10): ERROR: model is not available</code></pre>
     (define-fun srcPort () Int
         0)
     (define-fun dstPort () Int
-        8081)
+        8080)
 )</code></pre>
 
     <p>
