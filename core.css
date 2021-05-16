@@ -106,13 +106,15 @@ div.mugShot img { width: 200px; height: 200px; border: 2px solid #012; border-ra
     margin-bottom: 1.5em;
 }
 .post .tagList li {
-    display: inline;
+    display: inline-block;
     font-size: .875em;
     background-color: #e0e0e0;
     border-radius: 5px;
     padding: .25em .75em;
     margin-right: 1em;
     cursor: default;
+    white-space: nowrap;
+    margin-bottom: .5em;
 }
 
 pre {
